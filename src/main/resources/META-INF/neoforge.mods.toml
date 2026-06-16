@@ -1,0 +1,34 @@
+modLoader="javafml"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+issueTrackerURL="https://example.com/issues"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+authors="${mod_authors}"
+description='''
+${mod_description}
+
+Inspired by Gu Zhen Ren's Reverend Insanity (Reverend Insanity / 蛊真人).
+First spec: Rank 7 Gu Yue Fang Yuan with four moves:
+  1. Reverse Flow Protection Seal (toggle) - invulnerable + reflects damage
+  2. Giant Hand - slow falling giant hand smash
+  3. Emperor Yama (toggle) - flight + summon yama children (baby-zombie suicide bombers)
+  4. Five Finger Fist Heart Sword - 3-finger instant sword light strikes
+'''
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="${neo_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"

@@ -1,0 +1,9 @@
+{
+    "pack": {
+        "description": "${mod_id} resources",
+        "pack_format": 34,
+        "pack_format_overrides": [
+            { "pack_format": 34, "in_range": "[1.21, 1.21.1]" }
+        ]
+    }
+}
