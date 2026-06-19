@@ -1,16 +1,21 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  net.minecraft.core.registries.Registries
+ *  net.minecraft.resources.ResourceKey
+ *  net.neoforged.neoforge.registries.DeferredRegister
+ */
 package com.adminspec.moves;
 
-import com.adminspec.AdminSpecMod;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
-/**
- * Holds any deferred registers the moves need (currently none, but kept for symmetry
- * and to give the main mod class a stable registration hook).
- */
 public final class ModMoves {
+    public static final DeferredRegister<?> MOVES = DeferredRegister.create((ResourceKey)Registries.ATTRIBUTE, (String)"adminspec");
 
-    public static final DeferredRegister<?> MOVES =
-            DeferredRegister.create(net.minecraft.core.registries.Registries.ATTRIBUTE, AdminSpecMod.MOD_ID);
-
-    private ModMoves() {}
+    private ModMoves() {
+    }
 }
+

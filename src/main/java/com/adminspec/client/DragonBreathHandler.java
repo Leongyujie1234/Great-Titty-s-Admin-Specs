@@ -2,9 +2,7 @@
  * Decompiled with CFR 0.152.
  * 
  * Could not load the following classes:
- *  net.minecraft.client.KeyMapping
  *  net.minecraft.client.Minecraft
- *  net.minecraft.client.player.LocalPlayer
  *  net.minecraft.network.protocol.common.custom.CustomPacketPayload
  *  net.neoforged.api.distmarker.Dist
  *  net.neoforged.bus.api.SubscribeEvent
@@ -15,13 +13,9 @@
  */
 package com.adminspec.client;
 
-import com.adminspec.client.ClientBeamManager;
-import com.adminspec.client.MoveKeybinds;
-import com.adminspec.network.ActivateMovePayload;
-import java.util.Map;
-import net.minecraft.client.KeyMapping;
+import com.adminspec.client.ClientDragonFormState;
+import com.adminspec.network.DragonBreathPayload;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -30,26 +24,22 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 @EventBusSubscriber(modid="adminspec", bus=EventBusSubscriber.Bus.GAME, value={Dist.CLIENT})
-public final class ClientKeyHandler {
-    private ClientKeyHandler() {
+public final class DragonBreathHandler {
+    private DragonBreathHandler() {
     }
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
-        ClientBeamManager.tick();
-        Minecraft mc = Minecraft.getInstance();
-        LocalPlayer player = mc.player;
-        if (player == null || mc.level == null) {
+        if (!ClientDragonFormState.isActive()) {
             return;
         }
-        for (Map.Entry<String, KeyMapping> entry : MoveKeybinds.all().entrySet()) {
-            if (!entry.getValue().consumeClick()) continue;
-            ClientKeyHandler.sendActivate(entry.getKey());
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) {
+            return;
         }
-    }
-
-    private static void sendActivate(String moveId) {
-        PacketDistributor.sendToServer((CustomPacketPayload)new ActivateMovePayload(moveId), (CustomPacketPayload[])new CustomPacketPayload[0]);
+        if (mc.options.keyAttack.isDown()) {
+            PacketDistributor.sendToServer((CustomPacketPayload)new DragonBreathPayload(), (CustomPacketPayload[])new CustomPacketPayload[0]);
+        }
     }
 }
 

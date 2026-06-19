@@ -1,17 +1,18 @@
+/*
+ * Decompiled with CFR 0.152.
+ */
 package com.adminspec.spec;
 
+import com.adminspec.spec.Spec;
+import com.adminspec.spec.guyue.GuYueFangYuanSpec;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Server-side registry of all Specs by id.
- * Specs register their moves here during commonSetup.
- */
 public final class SpecRegistry {
+    private static final Map<String, Spec> SPECS = new HashMap<String, Spec>();
 
-    private static final Map<String, Spec> SPECS = new HashMap<>();
-
-    private SpecRegistry() {}
+    private SpecRegistry() {
+    }
 
     public static void register(Spec spec) {
         if (SPECS.containsKey(spec.id())) {
@@ -32,8 +33,8 @@ public final class SpecRegistry {
         return SPECS.values();
     }
 
-    /** Called once during FMLCommonSetupEvent. */
     public static void registerDefaults() {
-        com.adminspec.spec.guyue.GuYueFangYuanSpec.register();
+        GuYueFangYuanSpec.register();
     }
 }
+

@@ -1,3 +1,17 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  net.minecraft.network.FriendlyByteBuf
+ *  net.minecraft.network.codec.ByteBufCodecs
+ *  net.minecraft.network.codec.StreamCodec
+ *  net.minecraft.network.protocol.common.custom.CustomPacketPayload
+ *  net.minecraft.network.protocol.common.custom.CustomPacketPayload$Type
+ *  net.minecraft.resources.ResourceLocation
+ *  net.minecraft.server.level.ServerPlayer
+ *  net.minecraft.world.entity.player.Player
+ *  net.neoforged.neoforge.network.handling.IPayloadContext
+ */
 package com.adminspec.network;
 
 import com.adminspec.capability.PlayerSpecCapability;
@@ -8,32 +22,28 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/**
- * Client -> Server: "I pressed move key at index N (0-based)."
- */
-public record ActivateMovePayload(int moveIndex) implements CustomPacketPayload {
+public record ActivateMovePayload(String moveId) implements CustomPacketPayload
+{
+    public static final CustomPacketPayload.Type<ActivateMovePayload> TYPE = new CustomPacketPayload.Type(ResourceLocation.fromNamespaceAndPath((String)"adminspec", (String)"activate_move"));
+    public static final StreamCodec<FriendlyByteBuf, ActivateMovePayload> STREAM_CODEC = StreamCodec.composite((StreamCodec)ByteBufCodecs.STRING_UTF8, ActivateMovePayload::moveId, ActivateMovePayload::new);
 
-    public static final Type<ActivateMovePayload> TYPE =
-            new Type<>(ResourceLocation.fromNamespaceAndPath("adminspec", "activate_move"));
-
-    public static final StreamCodec<FriendlyByteBuf, ActivateMovePayload> STREAM_CODEC =
-            StreamCodec.composite(
-                    ByteBufCodecs.INT, ActivateMovePayload::moveIndex,
-                    ActivateMovePayload::new);
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
+    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
         return TYPE;
     }
 
     public static void handle(ActivateMovePayload payload, IPayloadContext ctx) {
-        if (!(ctx.player() instanceof ServerPlayer player)) return;
+        Player player = ctx.player();
+        if (!(player instanceof ServerPlayer)) {
+            return;
+        }
+        ServerPlayer player2 = (ServerPlayer)player;
         ctx.enqueueWork(() -> {
-            PlayerSpecData data = PlayerSpecCapability.get(player);
-            // 0-based -> 1-based index.
-            data.activateMove(player, payload.moveIndex() + 1, true);
+            PlayerSpecData data = PlayerSpecCapability.get((Player)player2);
+            data.activateMove((Player)player2, payload.moveId(), true);
         });
     }
 }
+

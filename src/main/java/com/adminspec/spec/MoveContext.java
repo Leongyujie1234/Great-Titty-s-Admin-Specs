@@ -1,13 +1,16 @@
+/*
+ * Decompiled with CFR 0.152.
+ * 
+ * Could not load the following classes:
+ *  net.minecraft.world.entity.player.Player
+ */
 package com.adminspec.spec;
 
 import net.minecraft.world.entity.player.Player;
 
-/**
- * Context passed to a SpecMove when the player triggers it (via keybind or command).
- */
 public final class MoveContext {
     private final Player player;
-    private final boolean pressed; // true = key just pressed, false = key just released (for toggles)
+    private final boolean pressed;
 
     public MoveContext(Player player, boolean pressed) {
         this.player = player;
@@ -15,10 +18,11 @@ public final class MoveContext {
     }
 
     public Player player() {
-        return player;
+        return this.player;
     }
 
     public boolean pressed() {
-        return pressed;
+        return this.pressed;
     }
 }
+
