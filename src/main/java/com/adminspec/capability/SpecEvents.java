@@ -196,5 +196,27 @@ public final class SpecEvents {
             }
         }
     }
+
+    @SubscribeEvent
+    public static void onAttackEntity(net.neoforged.neoforge.event.entity.player.AttackEntityEvent event) {
+        Player player = event.getEntity();
+        if (player != null) {
+            PlayerSpecData data = PlayerSpecCapability.get(player);
+            if (data.isDragonFormActive()) {
+                event.setCanceled(true);
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static void onEntityInteract(net.neoforged.neoforge.event.entity.player.PlayerInteractEvent.EntityInteract event) {
+        Player player = event.getEntity();
+        if (player != null) {
+            PlayerSpecData data = PlayerSpecCapability.get(player);
+            if (data.isDragonFormActive()) {
+                event.setCanceled(true);
+            }
+        }
+    }
 }
 

@@ -6,17 +6,17 @@ issueTrackerURL="https://example.com/issues"
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"
-displayName="${mod_name}"
+displayName="Fang Yuan's Admin Specs"
 authors="${mod_authors}"
 description='''
 ${mod_description}
 
 Inspired by Gu Zhen Ren's Reverend Insanity (Reverend Insanity / 蛊真人).
-First spec: Rank 7 Gu Yue Fang Yuan with four moves:
-  1. Reverse Flow Protection Seal (toggle) - invulnerable + reflects damage
-  2. Giant Hand - slow falling giant hand smash
-  3. Emperor Yama (toggle) - flight + summon yama children (baby-zombie suicide bombers)
-  4. Five Finger Fist Heart Sword - 3-finger instant sword light strikes
+First spec: Rank 7 Liu Guan Yi with four moves:
+  1. Sword Escape (dash forward as a streak of sword light)
+  2. Reverse Flow Protection Seal (toggle) - invulnerable + reflects damage
+  3. Ancient Sword Dragon Transformation (toggle) - transform into Ancient Sword Dragon
+  4. Yama Children - summon baby-zombie suicide bombers
 '''
 
 [[dependencies.${mod_id}]]

@@ -1,7 +1,5 @@
 package com.adminspec.client;
 
-import com.adminspec.client.ClientSpecState;
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -27,111 +25,114 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RenderPlayerEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @EventBusSubscriber(modid = "adminspec", bus = EventBusSubscriber.Bus.GAME, value = {Dist.CLIENT})
 public final class ClientDragonFormRenderer {
+    private static final Logger LOGGER = LoggerFactory.getLogger("adminspec-dragon");
 
     private ClientDragonFormRenderer() {}
 
+    // Simple geo model representation
+    public static class Cube {
+        public float[] origin;   // [x, y, z] in pixels
+        public float[] size;     // [w, h, d] in pixels
+        public float[] pivot;    // optional per-cube pivot in pixels
+        public float[] rotation; // optional per-cube rotation in degrees
+        public int[] uv;         // [u, v] offset
+    }
+
+    public static class Bone {
+        public String name;
+        public String parent;
+        public float[] pivot;    // pivot in pixels
+        public float[] rotation; // rotation in degrees
+        public List<Cube> cubes = new ArrayList<>();
+    }
+
     public static class GeoModel {
-        public static class Cube {
-            public float[] origin;
-            public float[] size;
-            public float[] pivot;
-            public float[] rotation;
-            public int[] uv;
-        }
-
-        public static class Bone {
-            public String name;
-            public String parent;
-            public float[] pivot;
-            public float[] rotation;
-            public List<Cube> cubes = new ArrayList<>();
-        }
-
         public List<Bone> bones = new ArrayList<>();
+        public int texW = 256;
+        public int texH = 256;
     }
 
     private static GeoModel dragonModel = null;
+    private static boolean loadAttempted = false;
 
     private static void loadModel() {
-        if (dragonModel != null) return;
+        if (loadAttempted) return;
+        loadAttempted = true;
         try {
-            ResourceLocation loc = ResourceLocation.fromNamespaceAndPath("adminspec", "models/entity/ancient_sword_dragon.geo.json");
+            ResourceLocation loc = ResourceLocation.fromNamespaceAndPath("adminspec",
+                "models/entity/ancient_sword_dragon.geo.json");
             var resource = Minecraft.getInstance().getResourceManager().getResource(loc);
-            if (resource.isPresent()) {
-                try (InputStream stream = resource.get().open();
-                     InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
-                    JsonObject rootObj = JsonParser.parseReader(reader).getAsJsonObject();
-                    JsonArray geoArray = rootObj.getAsJsonArray("minecraft:geometry");
-                    if (geoArray != null && geoArray.size() > 0) {
-                        JsonObject geo = geoArray.get(0).getAsJsonObject();
-                        JsonArray bonesArray = geo.getAsJsonArray("bones");
-                        GeoModel model = new GeoModel();
-                        if (bonesArray != null) {
-                            for (JsonElement bElem : bonesArray) {
-                                JsonObject bObj = bElem.getAsJsonObject();
-                                GeoModel.Bone bone = new GeoModel.Bone();
-                                bone.name = bObj.has("name") ? bObj.get("name").getAsString() : "";
-                                bone.parent = bObj.has("parent") ? bObj.get("parent").getAsString() : null;
+            if (resource.isEmpty()) {
+                LOGGER.error("[AdminSpec] Dragon geo.json not found at: {}", loc);
+                return;
+            }
+            try (InputStream stream = resource.get().open();
+                 InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8)) {
 
-                                if (bObj.has("pivot")) {
-                                    JsonArray pArr = bObj.getAsJsonArray("pivot");
-                                    bone.pivot = new float[]{pArr.get(0).getAsFloat(), pArr.get(1).getAsFloat(), pArr.get(2).getAsFloat()};
-                                } else {
-                                    bone.pivot = new float[]{0, 0, 0};
-                                }
-
-                                if (bObj.has("rotation")) {
-                                    JsonArray rArr = bObj.getAsJsonArray("rotation");
-                                    bone.rotation = new float[]{rArr.get(0).getAsFloat(), rArr.get(1).getAsFloat(), rArr.get(2).getAsFloat()};
-                                } else {
-                                    bone.rotation = new float[]{0, 0, 0};
-                                }
-
-                                if (bObj.has("cubes")) {
-                                    JsonArray cArr = bObj.getAsJsonArray("cubes");
-                                    for (JsonElement cElem : cArr) {
-                                        JsonObject cObj = cElem.getAsJsonObject();
-                                        GeoModel.Cube cube = new GeoModel.Cube();
-
-                                        JsonArray oArr = cObj.getAsJsonArray("origin");
-                                        cube.origin = new float[]{oArr.get(0).getAsFloat(), oArr.get(1).getAsFloat(), oArr.get(2).getAsFloat()};
-
-                                        JsonArray sArr = cObj.getAsJsonArray("size");
-                                        cube.size = new float[]{sArr.get(0).getAsFloat(), sArr.get(1).getAsFloat(), sArr.get(2).getAsFloat()};
-
-                                        if (cObj.has("pivot")) {
-                                            JsonArray cpArr = cObj.getAsJsonArray("pivot");
-                                            cube.pivot = new float[]{cpArr.get(0).getAsFloat(), cpArr.get(1).getAsFloat(), cpArr.get(2).getAsFloat()};
-                                        }
-
-                                        if (cObj.has("rotation")) {
-                                            JsonArray crArr = cObj.getAsJsonArray("rotation");
-                                            cube.rotation = new float[]{crArr.get(0).getAsFloat(), crArr.get(1).getAsFloat(), crArr.get(2).getAsFloat()};
-                                        }
-
-                                        if (cObj.has("uv")) {
-                                            JsonArray uArr = cObj.getAsJsonArray("uv");
-                                            cube.uv = new int[]{uArr.get(0).getAsInt(), uArr.get(1).getAsInt()};
-                                        } else {
-                                            cube.uv = new int[]{0, 0};
-                                        }
-
-                                        bone.cubes.add(cube);
-                                    }
-                                }
-                                model.bones.add(bone);
-                            }
-                        }
-                        dragonModel = model;
-                    }
+                JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+                JsonArray geoArray = root.getAsJsonArray("minecraft:geometry");
+                if (geoArray == null || geoArray.isEmpty()) {
+                    LOGGER.error("[AdminSpec] 'minecraft:geometry' array missing in dragon geo.json");
+                    return;
                 }
+                JsonObject geo = geoArray.get(0).getAsJsonObject();
+                JsonObject desc = geo.has("description") ? geo.getAsJsonObject("description") : null;
+
+                GeoModel model = new GeoModel();
+                if (desc != null) {
+                    if (desc.has("texture_width"))  model.texW = desc.get("texture_width").getAsInt();
+                    if (desc.has("texture_height")) model.texH = desc.get("texture_height").getAsInt();
+                }
+
+                JsonArray bonesArray = geo.getAsJsonArray("bones");
+                if (bonesArray == null) {
+                    LOGGER.error("[AdminSpec] No 'bones' in dragon geo.json");
+                    return;
+                }
+                for (JsonElement bElem : bonesArray) {
+                    JsonObject bObj = bElem.getAsJsonObject();
+                    Bone bone = new Bone();
+                    bone.name   = bObj.has("name")   ? bObj.get("name").getAsString()   : "";
+                    bone.parent = bObj.has("parent") ? bObj.get("parent").getAsString() : null;
+                    bone.pivot    = parseVec3(bObj, "pivot",    0, 0, 0);
+                    bone.rotation = parseVec3(bObj, "rotation", 0, 0, 0);
+
+                    if (bObj.has("cubes")) {
+                        for (JsonElement cElem : bObj.getAsJsonArray("cubes")) {
+                            JsonObject cObj = cElem.getAsJsonObject();
+                            Cube cube = new Cube();
+                            cube.origin   = parseVec3(cObj, "origin", 0, 0, 0);
+                            cube.size     = parseVec3(cObj, "size",   1, 1, 1);
+                            cube.pivot    = cObj.has("pivot")    ? parseVec3(cObj, "pivot",    0, 0, 0) : null;
+                            cube.rotation = cObj.has("rotation") ? parseVec3(cObj, "rotation", 0, 0, 0) : null;
+                            if (cObj.has("uv")) {
+                                JsonArray uArr = cObj.getAsJsonArray("uv");
+                                cube.uv = new int[]{uArr.get(0).getAsInt(), uArr.get(1).getAsInt()};
+                            } else {
+                                cube.uv = new int[]{0, 0};
+                            }
+                            bone.cubes.add(cube);
+                        }
+                    }
+                    model.bones.add(bone);
+                }
+                dragonModel = model;
+                LOGGER.info("[AdminSpec] Dragon geo.json loaded: {} bones, tex={}x{}", model.bones.size(), model.texW, model.texH);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            LOGGER.error("[AdminSpec] Failed to load dragon geo.json", e);
         }
+    }
+
+    private static float[] parseVec3(JsonObject obj, String key, float dx, float dy, float dz) {
+        if (!obj.has(key)) return new float[]{dx, dy, dz};
+        JsonArray arr = obj.getAsJsonArray(key);
+        return new float[]{arr.get(0).getAsFloat(), arr.get(1).getAsFloat(), arr.get(2).getAsFloat()};
     }
 
     @SubscribeEvent
@@ -139,95 +140,121 @@ public final class ClientDragonFormRenderer {
         Player player = event.getEntity();
         UUID uuid = player.getUUID();
         ClientSpecState.Snapshot snapshot = ClientSpecState.get(uuid);
-        if (snapshot != null && snapshot.dragonFormActive) {
-            int ticks = snapshot.dragonFormTicks;
-            PoseStack pose = event.getPoseStack();
+        if (snapshot == null || !snapshot.dragonFormActive) return;
 
-            loadModel();
-            if (dragonModel == null) return;
+        loadModel();
+        if (dragonModel == null) return;
 
-            // Group bones by parent
-            Map<String, List<GeoModel.Bone>> childrenMap = new HashMap<>();
-            List<GeoModel.Bone> roots = new ArrayList<>();
-            for (GeoModel.Bone bone : dragonModel.bones) {
-                if (bone.parent == null || bone.parent.isEmpty() || bone.parent.equals("root")) {
-                    roots.add(bone);
-                } else {
-                    childrenMap.computeIfAbsent(bone.parent, k -> new ArrayList<>()).add(bone);
+        int ticks = snapshot.dragonFormTicks;
+        PoseStack pose = event.getPoseStack();
+        MultiBufferSource bufSource = event.getMultiBufferSource();
+
+        // Build bone hierarchy
+        Map<String, List<Bone>> childrenMap = new HashMap<>();
+        List<Bone> rootBones = new ArrayList<>();
+        for (Bone bone : dragonModel.bones) {
+            if (bone.parent == null || bone.parent.isEmpty() || bone.parent.equals("root")) {
+                // "root" bone itself has no cubes — but its children (front_body etc.) do
+                if (!bone.name.equals("root")) {
+                    rootBones.add(bone);
                 }
-            }
-
-            ResourceLocation texture = ResourceLocation.fromNamespaceAndPath("adminspec", "textures/entity/ancient_sword_dragon.png");
-            VertexConsumer consumer = event.getMultiBufferSource().getBuffer(RenderType.entityCutoutNoCull(texture));
-
-            if (ticks >= 60) {
-                event.setCanceled(true);
-                pose.pushPose();
-                pose.translate(0.0, 0.75, 0.0);
-                float yaw = player.getViewYRot(event.getPartialTick());
-                float pitch = player.getViewXRot(event.getPartialTick());
-                pose.mulPose(Axis.YP.rotationDegrees(-yaw - 180.0f));
-                pose.mulPose(Axis.XP.rotationDegrees(pitch));
-                pose.scale(0.85f, 0.85f, 0.85f);
-                for (GeoModel.Bone root : roots) {
-                    renderBone(pose, consumer, root, childrenMap, event.getPackedLight(), 1.0f, 1.0f, 1.0f, 1.0f, event.getPartialTick(), player);
-                }
-                pose.popPose();
             } else {
-                // Progressive mutation attached to player model
-                pose.pushPose();
-
-                // 1. Head/Neck mutation (ticks 10-25)
-                if (ticks >= 10) {
-                    pose.pushPose();
-                    pose.translate(0.0, 1.9, 0.0);
-                    pose.scale(0.35f, 0.35f, 0.35f);
-                    for (GeoModel.Bone root : roots) {
-                        if (root.name.equals("neck")) {
-                            renderBone(pose, consumer, root, childrenMap, event.getPackedLight(), 1.0f, 1.0f, 1.0f, 1.0f, event.getPartialTick(), player);
-                        }
-                    }
-                    pose.popPose();
-                }
-
-                // 2. Body mutation (ticks 25-45)
-                if (ticks >= 25) {
-                    pose.pushPose();
-                    pose.translate(0.0, 1.0, 0.15);
-                    pose.scale(0.35f, 0.35f, 0.35f);
-                    for (GeoModel.Bone root : roots) {
-                        if (root.name.equals("front_body")) {
-                            renderBone(pose, consumer, root, childrenMap, event.getPackedLight(), 1.0f, 1.0f, 1.0f, 1.0f, event.getPartialTick(), player);
-                        }
-                    }
-                    pose.popPose();
-                }
-
-                pose.popPose();
+                childrenMap.computeIfAbsent(bone.parent, k -> new ArrayList<>()).add(bone);
             }
+        }
+
+        // Also add children of "root" explicitly since we skip the "root" bone
+        // The geo has: root → front_body → middle_body → ...
+        // front_body.parent = "root" so it's already in rootBones above
+
+        ResourceLocation texture = ResourceLocation.fromNamespaceAndPath("adminspec",
+            "textures/entity/ancient_sword_dragon.png");
+        VertexConsumer consumer = bufSource.getBuffer(RenderType.entityCutoutNoCull(texture));
+        int light = event.getPackedLight();
+        float pt = event.getPartialTick();
+
+        if (ticks >= 60) {
+            // Full dragon: hide player, show full dragon model
+            event.setCanceled(true);
+            pose.pushPose();
+
+            // Center on player standing position, scale to reasonable size
+            float yaw = player.getViewYRot(pt);
+            pose.translate(0.0, 0.0, 0.0);
+            pose.mulPose(Axis.YP.rotationDegrees(-yaw - 180f));
+            // Bedrock model coordinates: 1 pixel = 1/16 block
+            // The dragon body is ~100px wide; we want ~5 blocks → scale = 5/6.25 ≈ 0.8 /16
+            float modelScale = 1f / 16f;
+            pose.scale(modelScale, modelScale, modelScale);
+
+            for (Bone root : rootBones) {
+                renderBone(pose, consumer, root, childrenMap, light, 1f, 1f, 1f, 1f, pt, player);
+            }
+            pose.popPose();
+        } else {
+            // Progressive mutation (0-60 ticks): don't cancel player render, overlay dragon parts
+            pose.pushPose();
+            float yaw = player.getViewYRot(pt);
+            pose.mulPose(Axis.YP.rotationDegrees(-yaw - 180f));
+            float modelScale = 1f / 16f;
+            pose.scale(modelScale, modelScale, modelScale);
+
+            float alpha = Math.min(1.0f, ticks / 30f); // fade in
+
+            // Phase 1 (ticks 5+): show neck/head
+            if (ticks >= 5) {
+                for (Bone b : dragonModel.bones) {
+                    if (b.name.equals("neck") || b.name.equals("head")) {
+                        renderBone(pose, consumer, b, childrenMap, light, 1f, 1f, 1f, alpha, pt, player);
+                    }
+                }
+            }
+            // Phase 2 (ticks 20+): body
+            if (ticks >= 20) {
+                for (Bone b : dragonModel.bones) {
+                    if (b.name.equals("front_body")) {
+                        renderBone(pose, consumer, b, childrenMap, light, 1f, 1f, 1f, alpha, pt, player);
+                    }
+                }
+            }
+            // Phase 3 (ticks 40+): wings + tail
+            if (ticks >= 40) {
+                for (Bone b : dragonModel.bones) {
+                    if (b.name.contains("wing") || b.name.contains("tail")) {
+                        renderBone(pose, consumer, b, childrenMap, light, 1f, 1f, 1f, alpha, pt, player);
+                    }
+                }
+            }
+            pose.popPose();
         }
     }
 
-    private static void renderBone(PoseStack pose, VertexConsumer consumer, GeoModel.Bone bone, Map<String, List<GeoModel.Bone>> childrenMap, int light, float r, float g, float b, float a, float partialTick, Player player) {
+    private static void renderBone(
+        PoseStack pose, VertexConsumer consumer, Bone bone,
+        Map<String, List<Bone>> childrenMap,
+        int light, float r, float g, float b, float a,
+        float partialTick, Player player
+    ) {
         pose.pushPose();
 
-        float px = bone.pivot[0] / 16.0f;
-        float py = bone.pivot[1] / 16.0f;
-        float pz = bone.pivot[2] / 16.0f;
-
+        // Translate to bone pivot, apply rotation, translate back
+        float px = bone.pivot[0];
+        float py = bone.pivot[1];
+        float pz = bone.pivot[2];
         pose.translate(px, py, pz);
 
         float rx = bone.rotation[0];
         float ry = bone.rotation[1];
         float rz = bone.rotation[2];
 
-        // Animated body, tail and hair flapping based on time
-        if (bone.name.equals("tail") || bone.name.equals("tail_fin")) {
-            double tailSwing = Math.sin((double)(player.level().getGameTime()) * 0.15) * 8.0;
-            ry += (float) tailSwing;
+        // Animate certain bones
+        long time = player.level().getGameTime();
+        if (bone.name.contains("tail")) {
+            ry += (float)(Math.sin(time * 0.12) * 12.0);
+        } else if (bone.name.contains("wing") || bone.name.contains("Wing")) {
+            rz += (float)(Math.sin(time * 0.2) * 20.0);
         } else if (bone.name.contains("Hair") || bone.name.contains("Horn")) {
-            double hairFlap = Math.sin((double)(player.level().getGameTime()) * 0.1) * 3.0;
-            rz += (float) hairFlap;
+            rz += (float)(Math.sin(time * 0.1) * 4.0);
         }
 
         if (rx != 0) pose.mulPose(Axis.XP.rotationDegrees(rx));
@@ -236,35 +263,31 @@ public final class ClientDragonFormRenderer {
 
         pose.translate(-px, -py, -pz);
 
-        for (GeoModel.Cube cube : bone.cubes) {
+        // Draw cubes
+        for (Cube cube : bone.cubes) {
             pose.pushPose();
-            float ox = cube.origin[0] / 16.0f;
-            float oy = cube.origin[1] / 16.0f;
-            float oz = cube.origin[2] / 16.0f;
-            float cx = cube.size[0] / 16.0f;
-            float cy = cube.size[1] / 16.0f;
-            float cz = cube.size[2] / 16.0f;
-
             if (cube.pivot != null) {
-                float cpx = cube.pivot[0] / 16.0f;
-                float cpy = cube.pivot[1] / 16.0f;
-                float cpz = cube.pivot[2] / 16.0f;
-                pose.translate(cpx, cpy, cpz);
+                pose.translate(cube.pivot[0], cube.pivot[1], cube.pivot[2]);
                 if (cube.rotation != null) {
                     if (cube.rotation[0] != 0) pose.mulPose(Axis.XP.rotationDegrees(cube.rotation[0]));
                     if (cube.rotation[1] != 0) pose.mulPose(Axis.YP.rotationDegrees(cube.rotation[1]));
                     if (cube.rotation[2] != 0) pose.mulPose(Axis.ZP.rotationDegrees(cube.rotation[2]));
                 }
-                pose.translate(-cpx, -cpy, -cpz);
+                pose.translate(-cube.pivot[0], -cube.pivot[1], -cube.pivot[2]);
             }
-
-            drawBox(pose.last(), consumer, ox, oy, oz, cx, cy, cz, cube.uv[0], cube.uv[1], 256, 256, light, OverlayTexture.NO_OVERLAY, r, g, b, a);
+            drawBox(pose.last(), consumer,
+                cube.origin[0], cube.origin[1], cube.origin[2],
+                cube.size[0], cube.size[1], cube.size[2],
+                cube.uv[0], cube.uv[1],
+                dragonModel.texW, dragonModel.texH,
+                light, OverlayTexture.NO_OVERLAY, r, g, b, a);
             pose.popPose();
         }
 
-        List<GeoModel.Bone> children = childrenMap.get(bone.name);
+        // Recurse into children
+        List<Bone> children = childrenMap.get(bone.name);
         if (children != null) {
-            for (GeoModel.Bone child : children) {
+            for (Bone child : children) {
                 renderBone(pose, consumer, child, childrenMap, light, r, g, b, a, partialTick, player);
             }
         }
@@ -272,46 +295,69 @@ public final class ClientDragonFormRenderer {
         pose.popPose();
     }
 
-    private static void drawBox(PoseStack.Pose entry, VertexConsumer consumer, float x, float y, float z, float w, float h, float d, int u, int v, int texW, int texH, int light, int overlay, float red, float green, float blue, float alpha) {
-        float x1 = x;
-        float x2 = x + w;
-        float y1 = y;
-        float y2 = y + h;
-        float z1 = z;
-        float z2 = z + d;
-
-        drawFace(entry, consumer, x1, y1, z1, x1, y2, z2, u, v + (int)d, d, h, texW, texH, -1.0f, 0.0f, 0.0f, light, overlay, red, green, blue, alpha);
-        drawFace(entry, consumer, x2, y1, z2, x2, y2, z1, u + (int)d + (int)w, v + (int)d, d, h, texW, texH, 1.0f, 0.0f, 0.0f, light, overlay, red, green, blue, alpha);
-        drawFace(entry, consumer, x1, y1, z2, x2, y1, z1, u + (int)d + (int)w, v, w, d, texW, texH, 0.0f, -1.0f, 0.0f, light, overlay, red, green, blue, alpha);
-        drawFace(entry, consumer, x1, y2, z1, x2, y2, z2, u + (int)d, v, w, d, texW, texH, 0.0f, 1.0f, 0.0f, light, overlay, red, green, blue, alpha);
-        drawFace(entry, consumer, x2, y1, z1, x1, y2, z1, u + (int)d, v + (int)d, w, h, texW, texH, 0.0f, 0.0f, -1.0f, light, overlay, red, green, blue, alpha);
-        drawFace(entry, consumer, x1, y1, z2, x2, y2, z2, u + 2 * (int)d + (int)w, v + (int)d, w, h, texW, texH, 0.0f, 0.0f, 1.0f, light, overlay, red, green, blue, alpha);
+    /**
+     * Draws a Bedrock-style box. Coordinates are in pixel units (not divided by 16 yet —
+     * the overall modelScale (1/16) is already applied via the PoseStack).
+     */
+    private static void drawBox(
+        PoseStack.Pose entry, VertexConsumer consumer,
+        float x, float y, float z,
+        float w, float h, float d,
+        int u, int v, int texW, int texH,
+        int light, int overlay, float red, float green, float blue, float alpha
+    ) {
+        float x2 = x + w, y2 = y + h, z2 = z + d;
+        // Minecraft standard face layout for box:
+        // West face   (-X)
+        face(entry,consumer, x, y,z, x,y2,z2,  u,         v+(int)d,       (int)d,(int)h, texW,texH, -1,0,0, light,overlay,red,green,blue,alpha);
+        // East face   (+X)
+        face(entry,consumer, x2,y,z2, x2,y2,z, u+(int)d+(int)w, v+(int)d, (int)d,(int)h, texW,texH,  1,0,0, light,overlay,red,green,blue,alpha);
+        // Bottom face (-Y)
+        face(entry,consumer, x,y,z2, x2,y,z,  u+(int)d+(int)w,v,          (int)w,(int)d, texW,texH,  0,-1,0, light,overlay,red,green,blue,alpha);
+        // Top face    (+Y)
+        face(entry,consumer, x,y2,z, x2,y2,z2, u+(int)d,       v,          (int)w,(int)d, texW,texH,  0, 1,0, light,overlay,red,green,blue,alpha);
+        // North face  (-Z)
+        face(entry,consumer, x2,y,z, x,y2,z,  u+(int)d,       v+(int)d,   (int)w,(int)h, texW,texH,  0,0,-1, light,overlay,red,green,blue,alpha);
+        // South face  (+Z)
+        face(entry,consumer, x,y,z2, x2,y2,z2, u+2*(int)d+(int)w,v+(int)d,(int)w,(int)h, texW,texH,  0,0, 1, light,overlay,red,green,blue,alpha);
     }
 
-    private static void drawFace(PoseStack.Pose entry, VertexConsumer consumer, float minX, float minY, float minZ, float maxX, float maxY, float maxZ, int u, int v, float w, float h, int texW, int texH, float nx, float ny, float nz, int light, int overlay, float r, float g, float b, float a) {
-        float minU = (float)u / (float)texW;
-        float minV = (float)v / (float)texH;
-        float maxU = (float)(u + w) / (float)texW;
-        float maxV = (float)(v + h) / (float)texH;
-
-        vertex(entry, consumer, minX, minY, minZ, minU, maxV, nx, ny, nz, light, overlay, r, g, b, a);
-        vertex(entry, consumer, maxX, minY, maxZ, maxU, maxV, nx, ny, nz, light, overlay, r, g, b, a);
-        vertex(entry, consumer, maxX, maxY, maxZ, maxU, minV, nx, ny, nz, light, overlay, r, g, b, a);
-        vertex(entry, consumer, minX, maxY, minZ, minU, minV, nx, ny, nz, light, overlay, r, g, b, a);
+    private static void face(
+        PoseStack.Pose entry, VertexConsumer consumer,
+        float minX, float minY, float minZ,
+        float maxX, float maxY, float maxZ,
+        int u, int v, int fw, int fh,
+        int texW, int texH,
+        float nx, float ny, float nz,
+        int light, int overlay,
+        float r, float g, float b, float a
+    ) {
+        float u0 = (float)u / texW, u1 = (float)(u + fw) / texW;
+        float v0 = (float)v / texH, v1 = (float)(v + fh) / texH;
+        vert(entry,consumer, minX,minY,minZ, u0,v1, nx,ny,nz, light,overlay,r,g,b,a);
+        vert(entry,consumer, maxX,minY,maxZ, u1,v1, nx,ny,nz, light,overlay,r,g,b,a);
+        vert(entry,consumer, maxX,maxY,maxZ, u1,v0, nx,ny,nz, light,overlay,r,g,b,a);
+        vert(entry,consumer, minX,maxY,minZ, u0,v0, nx,ny,nz, light,overlay,r,g,b,a);
     }
 
-    private static void vertex(PoseStack.Pose entry, VertexConsumer consumer, float x, float y, float z, float u, float v, float nx, float ny, float nz, int light, int overlay, float r, float g, float b, float a) {
-        org.joml.Vector4f posVec = new org.joml.Vector4f(x, y, z, 1.0f);
-        posVec.mul(entry.pose());
+    private static void vert(
+        PoseStack.Pose entry, VertexConsumer consumer,
+        float x, float y, float z,
+        float u, float v,
+        float nx, float ny, float nz,
+        int light, int overlay,
+        float r, float g, float b, float a
+    ) {
+        org.joml.Vector4f pos = new org.joml.Vector4f(x, y, z, 1f);
+        pos.mul(entry.pose());
+        org.joml.Vector3f norm = new org.joml.Vector3f(nx, ny, nz);
+        norm.mul(entry.normal());
 
-        org.joml.Vector3f normVec = new org.joml.Vector3f(nx, ny, nz);
-        normVec.mul(entry.normal());
-
-        consumer.addVertex(posVec.x(), posVec.y(), posVec.z())
+        consumer.addVertex(pos.x(), pos.y(), pos.z())
                 .setColor(r, g, b, a)
                 .setUv(u, v)
                 .setOverlay(overlay)
                 .setLight(light)
-                .setNormal(normVec.x(), normVec.y(), normVec.z());
+                .setNormal(norm.x(), norm.y(), norm.z());
     }
 }

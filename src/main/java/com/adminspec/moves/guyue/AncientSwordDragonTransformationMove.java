@@ -2,6 +2,7 @@ package com.adminspec.moves.guyue;
 
 import com.adminspec.capability.PlayerSpecCapability;
 import com.adminspec.capability.PlayerSpecData;
+import com.adminspec.network.DragonBreathVfxPayload;
 import com.adminspec.network.DragonFormPayload;
 import com.adminspec.spec.MoveContext;
 import com.adminspec.spec.SpecMove;
@@ -18,114 +19,132 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
 
-public class AncientSwordDragonTransformationMove
-extends SpecMove {
+public class AncientSwordDragonTransformationMove extends SpecMove {
     public static final String ID = "ancient_sword_dragon_transformation";
-    private static final double FLIGHT_ACCEL = 0.15;
-    private static final double FLIGHT_MAX_SPEED = 1.5;
-    private static final double FLIGHT_FRICTION = 0.88;
-    private static final float BREATH_DAMAGE = 4.0f;
-    private static final double BREATH_RANGE = 16.0;
-    private static final int BREATH_DURATION_TICKS = 200;
-    private static final int BREATH_COOLDOWN_TICKS = 200;
-    private static final double SPEED_BOOST = 0.15;
-    private static final double ARMOR_BOOST = 2.0;
-    private static final double ARMOR_TOUGHNESS_BOOST = 4.0;
+
+    // Flight constants – tuned to feel like Do a Barrel Roll style custom flight
+    private static final double FLIGHT_ACCEL    = 0.08;
+    private static final double FLIGHT_MAX_SPEED = 1.2;
+    private static final double FLIGHT_FRICTION  = 0.90;
+    private static final double VERT_ACCEL       = 0.06;
+
+    private static final float  BREATH_DAMAGE    = 6.0f;
+    private static final double BREATH_RANGE     = 16.0;
 
     public AncientSwordDragonTransformationMove() {
-        super(ID, (Component)Component.literal("Ancient Sword Dragon Transformation"), (Component)Component.literal("Transform into the Ancient Sword Dragon. Custom flight system (velocity-based). M1 breathes sword qi. 5-minute duration. Inventory cleared + restored on detransform."));
+        super(ID,
+            Component.literal("Ancient Sword Dragon Transformation"),
+            Component.literal("Transform into the Ancient Sword Dragon. Velocity-based flight. M1 breathes sword qi. 5-minute duration."));
     }
 
     @Override
     public void activate(MoveContext ctx) {
-        Player player = ctx.player();
-        if (player.level().isClientSide) {
-            return;
-        }
-        if (!(player instanceof ServerPlayer)) {
-            return;
-        }
-        ServerPlayer sp = (ServerPlayer)player;
-        if (!ctx.pressed()) {
-            return;
-        }
-        PlayerSpecData data = PlayerSpecCapability.get(player);
+        if (ctx.player().level().isClientSide) return;
+        if (!(ctx.player() instanceof ServerPlayer sp)) return;
+        if (!ctx.pressed()) return;
+
+        PlayerSpecData data = PlayerSpecCapability.get(sp);
         if (data.isDragonFormActive()) {
-            this.detransform(sp, data);
-            return;
+            detransform(sp, data);
+        } else {
+            transform(sp, data);
         }
-        this.transform(sp, data);
     }
 
     @Override
     public void tick(Player player) {
-        if (player.level().isClientSide) {
-            return;
-        }
-        if (!(player instanceof ServerPlayer)) {
-            return;
-        }
-        ServerPlayer sp = (ServerPlayer)player;
-        PlayerSpecData data = PlayerSpecCapability.get(player);
+        if (player.level().isClientSide) return;
+        if (!(player instanceof ServerPlayer sp)) return;
+
+        PlayerSpecData data = PlayerSpecCapability.get(sp);
+
+        // Tick breath cooldown always
         if (data.getDragonBreathCooldown() > 0) {
             data.setDragonBreathCooldown(data.getDragonBreathCooldown() - 1);
         }
-        if (!data.isDragonFormActive()) {
-            return;
-        }
+
+        if (!data.isDragonFormActive()) return;
+
         data.incrementDragonFormTicks();
+
+        // Time expiry check
         if (data.getDragonFormTicks() >= PlayerSpecData.getDragonFormMaxDuration()) {
-            sp.sendSystemMessage((Component)Component.literal("\u00a76[Ancient Sword Dragon] \u00a7cTime has expired. Detransforming."));
-            this.detransform(sp, data);
+            sp.sendSystemMessage(Component.literal("§6[Ancient Sword Dragon] §cTime has expired. Detransforming."));
+            detransform(sp, data);
             return;
         }
 
-        // Custom Flight System Physics:
-        sp.setNoGravity(true);
-        sp.getAbilities().mayfly = false;
-        sp.getAbilities().flying = false;
+        // Broadcast state every 10 ticks so clients see accurate dragonFormTicks for progressive model
+        if (data.getDragonFormTicks() % 10 == 0) {
+            com.adminspec.network.SpecStatePayload.broadcast(sp);
+        }
+
+        // --- Custom Velocity-Based Flight ---
+        // Keep mayfly+flying set so the server doesn't rubber-band us.
+        // We drive motion entirely via setDeltaMovement each tick.
+        if (!sp.getAbilities().mayfly) {
+            sp.getAbilities().mayfly = true;
+            sp.onUpdateAbilities();
+        }
+        // Keep flying mode active (stops gravity)
+        sp.getAbilities().flying = true;
         sp.onUpdateAbilities();
 
+        Vec3 velocity = sp.getDeltaMovement();
+
+        if (data.getDragonFormTicks() < 20) {
+            // Force upward launch during transition animation (ignoring normal flight steer)
+            double progress = (double)data.getDragonFormTicks() / 20.0;
+            double upwardVelocity = 1.3 * (1.0 - progress);
+            sp.setDeltaMovement(velocity.x, upwardVelocity, velocity.z);
+            sp.hurtMarked = true;
+            return;
+        }
+
+        // Build desired movement direction from player-sent input
         Vec3 look = sp.getLookAngle();
         Vec3 moveDir = Vec3.ZERO;
 
-        float forward = sp.zza;
-        float strafe = sp.xxa;
+        float forward = data.getDragonForward();
+        float strafe  = data.getDragonStrafe();
 
-        if (forward > 0.0f) {
-            moveDir = moveDir.add(look);
-        } else if (forward < 0.0f) {
-            moveDir = moveDir.subtract(look);
+        if (forward > 0.01f) {
+            moveDir = moveDir.add(look.multiply(1, 1, 1));
+        } else if (forward < -0.01f) {
+            moveDir = moveDir.subtract(look.multiply(1, 1, 1));
         }
 
-        if (strafe != 0.0f) {
-            Vec3 right = look.cross(new Vec3(0, 1, 0)).normalize();
-            if (strafe > 0.0f) {
-                moveDir = moveDir.subtract(right);
+        if (Math.abs(strafe) > 0.01f) {
+            // Right vector = look cross up
+            Vec3 right = new Vec3(look.z, 0, -look.x).normalize();
+            if (strafe > 0f) {
+                moveDir = moveDir.subtract(right);  // strafe right
             } else {
-                moveDir = moveDir.add(right);
+                moveDir = moveDir.add(right);       // strafe left
             }
         }
 
+        // Vertical: jump key = up, sneak = down
         if (data.isDragonJumping()) {
-            moveDir = moveDir.add(new Vec3(0, 0.6, 0));
+            moveDir = moveDir.add(0, VERT_ACCEL / FLIGHT_ACCEL, 0);
         } else if (data.isDragonSneaking()) {
-            moveDir = moveDir.subtract(new Vec3(0, 0.6, 0));
+            moveDir = moveDir.subtract(0, VERT_ACCEL / FLIGHT_ACCEL, 0);
         }
 
-        Vec3 velocity = sp.getDeltaMovement();
+        // Apply acceleration
         if (moveDir.lengthSqr() > 1.0E-6) {
-            moveDir = moveDir.normalize().scale(FLIGHT_ACCEL);
-            velocity = velocity.add(moveDir);
+            Vec3 accel = moveDir.normalize().scale(FLIGHT_ACCEL);
+            velocity = velocity.add(accel);
         }
 
-        velocity = new Vec3(velocity.x * FLIGHT_FRICTION, velocity.y * FLIGHT_FRICTION, velocity.z * FLIGHT_FRICTION);
+        // Friction
+        velocity = velocity.scale(FLIGHT_FRICTION);
 
+        // Speed cap
         double speed = velocity.length();
         if (speed > FLIGHT_MAX_SPEED) {
             velocity = velocity.scale(FLIGHT_MAX_SPEED / speed);
@@ -136,112 +155,139 @@ extends SpecMove {
     }
 
     private void transform(ServerPlayer player, PlayerSpecData data) {
-        ArrayList<ItemStack> saved = new ArrayList<ItemStack>();
-        for (int i = 0; i < player.getInventory().getContainerSize(); ++i) {
+        // Save inventory
+        ArrayList<ItemStack> saved = new ArrayList<>();
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
             saved.add(player.getInventory().getItem(i).copy());
         }
         data.setDragonSavedInventory(saved);
         player.getInventory().clearContent();
+
+        // Attribute boosts
         try {
-            AttributeInstance toughness;
-            AttributeInstance armor;
             AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
-            if (speed != null) {
-                speed.setBaseValue(0.15);
-            }
-            if ((armor = player.getAttribute(Attributes.ARMOR)) != null) {
-                armor.setBaseValue(2.0);
-            }
-            if ((toughness = player.getAttribute(Attributes.ARMOR_TOUGHNESS)) != null) {
-                toughness.setBaseValue(4.0);
-            }
-        }
-        catch (Throwable throwable) {
-            // empty catch block
-        }
-        player.setNoGravity(true);
-        player.getAbilities().mayfly = false;
-        player.getAbilities().flying = false;
+            if (speed != null) speed.setBaseValue(0.15);
+            AttributeInstance armor = player.getAttribute(Attributes.ARMOR);
+            if (armor != null) armor.setBaseValue(20.0);
+            AttributeInstance toughness = player.getAttribute(Attributes.ARMOR_TOUGHNESS);
+            if (toughness != null) toughness.setBaseValue(8.0);
+        } catch (Throwable ignored) {}
+
+        // CRITICAL: grant mayfly so the server anti-cheat doesn't rubber-band flight
+        player.getAbilities().mayfly = true;
+        player.getAbilities().flying = true;
         player.onUpdateAbilities();
-        player.setDeltaMovement(new Vec3(0.0, 1.2, 0.0));
+
+        // Launch upward on transform
+        player.setDeltaMovement(0, 1.5, 0);
         player.hurtMarked = true;
+
+        // State
         data.setDragonFormActive(true);
         data.setDragonFormTicks(0);
         data.setDragonBreathCooldown(0);
-        PacketDistributor.sendToPlayer((ServerPlayer)player, (CustomPacketPayload)new DragonFormPayload(true), (CustomPacketPayload[])new CustomPacketPayload[0]);
+        data.setDragonForward(0);
+        data.setDragonStrafe(0);
+
+        // Notify client
+        PacketDistributor.sendToPlayer(player, new DragonFormPayload(true));
         com.adminspec.network.SpecStatePayload.broadcast(player);
-        player.sendSystemMessage((Component)Component.literal("\u00a76\u00a7l[Ancient Sword Dragon] \u00a7r\u00a7eYou have transformed into the Ancient Sword Dragon! WASD to fly, Space to ascend, Shift to descend. M1 to breathe sword qi. 5 minutes until forced detransform."));
+
+        player.sendSystemMessage(Component.literal(
+            "§6§l[Ancient Sword Dragon] §r§eTransformed! WASD to fly, Space=up, Shift=down. M1 = Sword Qi Breath. 5 min duration."));
     }
 
     private void detransform(ServerPlayer player, PlayerSpecData data) {
+        // Restore inventory
         player.getInventory().clearContent();
         List<ItemStack> saved = data.getDragonSavedInventory();
-        for (int i = 0; i < saved.size() && i < player.getInventory().getContainerSize(); ++i) {
+        for (int i = 0; i < saved.size() && i < player.getInventory().getContainerSize(); i++) {
             player.getInventory().setItem(i, saved.get(i));
         }
-        data.setDragonSavedInventory(new ArrayList<ItemStack>());
+        data.setDragonSavedInventory(new ArrayList<>());
+
+        // Restore attributes
         try {
-            AttributeInstance toughness;
-            AttributeInstance armor;
             AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
-            if (speed != null) {
-                speed.setBaseValue(0.1);
-            }
-            if ((armor = player.getAttribute(Attributes.ARMOR)) != null) {
-                armor.setBaseValue(0.0);
-            }
-            if ((toughness = player.getAttribute(Attributes.ARMOR_TOUGHNESS)) != null) {
-                toughness.setBaseValue(0.0);
-            }
-        }
-        catch (Throwable throwable) {
-            // empty catch block
-        }
+            if (speed != null) speed.setBaseValue(0.1);
+            AttributeInstance armor = player.getAttribute(Attributes.ARMOR);
+            if (armor != null) armor.setBaseValue(0.0);
+            AttributeInstance toughness = player.getAttribute(Attributes.ARMOR_TOUGHNESS);
+            if (toughness != null) toughness.setBaseValue(0.0);
+        } catch (Throwable ignored) {}
+
+        // Revoke flight unless creative/spectator
         player.setNoGravity(false);
         if (!player.isCreative() && !player.isSpectator()) {
             player.getAbilities().mayfly = false;
             player.getAbilities().flying = false;
+            player.onUpdateAbilities();
         }
-        player.onUpdateAbilities();
+
         data.setDragonFormActive(false);
         data.setDragonFormTicks(0);
-        PacketDistributor.sendToPlayer((ServerPlayer)player, (CustomPacketPayload)new DragonFormPayload(false), (CustomPacketPayload[])new CustomPacketPayload[0]);
+        data.setDragonForward(0);
+        data.setDragonStrafe(0);
+
+        PacketDistributor.sendToPlayer(player, new DragonFormPayload(false));
         com.adminspec.network.SpecStatePayload.broadcast(player);
-        player.sendSystemMessage((Component)Component.literal("\u00a76[Ancient Sword Dragon] \u00a77Transformed back to human form."));
+
+        player.sendSystemMessage(Component.literal("§6[Ancient Sword Dragon] §7Returned to human form."));
     }
 
     public static void handleBreath(ServerPlayer player) {
-        PlayerSpecData data = PlayerSpecCapability.get((Player)player);
-        if (!data.isDragonFormActive()) {
-            return;
-        }
-        if (data.getDragonBreathCooldown() > 0) {
-            return;
-        }
-        ServerLevel sl = (ServerLevel)player.level();
-        Vec3 eye = player.getEyePosition();
+        PlayerSpecData data = PlayerSpecCapability.get(player);
+        if (!data.isDragonFormActive()) return;
+        if (data.getDragonBreathCooldown() > 0) return;
+
+        ServerLevel sl = (ServerLevel) player.level();
+        Vec3 eye  = player.getEyePosition();
         Vec3 look = player.getLookAngle();
-        Vec3 start = eye.add(look.scale(1.0));
-        
-        // Spawn sword qi particles
-        for (double d = 0.0; d < 16.0; d += 0.5) {
-            Vec3 pos = start.add(look.scale(d));
-            sl.sendParticles(player, (ParticleOptions)ParticleTypes.SWEEP_ATTACK, true, pos.x, pos.y, pos.z, 2, 0.1, 0.1, 0.1, 0.05);
-            sl.sendParticles(player, (ParticleOptions)ParticleTypes.CRIT, true, pos.x, pos.y, pos.z, 3, 0.08, 0.08, 0.08, 0.05);
-            sl.sendParticles((ParticleOptions)ParticleTypes.SWEEP_ATTACK, pos.x, pos.y, pos.z, 1, 0.1, 0.1, 0.1, 0.05);
-            sl.sendParticles((ParticleOptions)ParticleTypes.CRIT, pos.x, pos.y, pos.z, 2, 0.08, 0.08, 0.08, 0.05);
+
+        // Server-side particles (visible to all via broadcast overload)
+        for (double d = 0.5; d < BREATH_RANGE; d += 0.6) {
+            Vec3 pos = eye.add(look.scale(d));
+            double spread = d * 0.06;
+            // CRIT particles – bright visible sword qi
+            sl.sendParticles(ParticleTypes.CRIT,
+                pos.x, pos.y, pos.z, 3, spread, spread, spread, 0.05);
+            sl.sendParticles(ParticleTypes.ENCHANTED_HIT,
+                pos.x, pos.y, pos.z, 2, spread, spread, spread, 0.03);
+            if (d % 1.8 < 0.6) {
+                sl.sendParticles(ParticleTypes.SWEEP_ATTACK,
+                    pos.x, pos.y, pos.z, 1, spread * 2, spread * 2, spread * 2, 0.0);
+            }
         }
-        
-        AABB beamBox = player.getBoundingBox().expandTowards(look.scale(16.0)).inflate(1.0);
-        List<LivingEntity> victims = sl.getEntitiesOfClass(LivingEntity.class, beamBox, e -> e.isAlive() && !e.equals(player));
+
+        // End burst
+        Vec3 tip = eye.add(look.scale(BREATH_RANGE));
+        sl.sendParticles(ParticleTypes.EXPLOSION, tip.x, tip.y, tip.z, 1, 0.5, 0.5, 0.5, 0.1);
+
+        // Damage entities in beam
+        AABB beamBox = player.getBoundingBox()
+            .expandTowards(look.scale(BREATH_RANGE))
+            .inflate(1.5);
+        List<LivingEntity> victims = sl.getEntitiesOfClass(LivingEntity.class, beamBox,
+            e -> e.isAlive() && !e.equals(player));
         for (LivingEntity v : victims) {
-            Vec3 toVictim = v.position().subtract(eye);
-            double projection = toVictim.dot(look);
-            if (projection < 0.0 || projection > 16.0) continue;
-            Vec3 closestPoint = eye.add(look.scale(projection));
-            if (!(v.position().distanceTo(closestPoint) < 1.5)) continue;
-            v.hurt(sl.damageSources().playerAttack((Player)player), 6.0f);
+            Vec3 toV       = v.position().subtract(eye);
+            double proj    = toV.dot(look);
+            if (proj < 0 || proj > BREATH_RANGE) continue;
+            Vec3 closest   = eye.add(look.scale(proj));
+            if (v.position().distanceTo(closest) >= 2.0) continue;
+            v.hurt(sl.damageSources().playerAttack(player), BREATH_DAMAGE);
         }
-        data.setDragonBreathCooldown(60); // 3 seconds cooldown
+
+        data.setDragonBreathCooldown(60); // 3 seconds
+
+        // Tell all nearby clients to play local VFX
+        PacketDistributor.sendToPlayersNear(
+            sl, null,
+            player.getX(), player.getY(), player.getZ(), 64.0,
+            new DragonBreathVfxPayload(
+                player.getId(),
+                eye.x, eye.y, eye.z,
+                look.x, look.y, look.z)
+        );
     }
 }

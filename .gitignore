@@ -32,3 +32,10 @@ data/
 saves/
 crash-reports/
 logs/
+
+# Project specifics
+/viltrumitecore-1.1.0.jar
+/assets/
+/transition_notes.md
+compile.log
+build.log

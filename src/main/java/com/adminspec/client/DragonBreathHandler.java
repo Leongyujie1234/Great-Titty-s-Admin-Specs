@@ -1,19 +1,5 @@
-/*
- * Decompiled with CFR 0.152.
- * 
- * Could not load the following classes:
- *  net.minecraft.client.Minecraft
- *  net.minecraft.network.protocol.common.custom.CustomPacketPayload
- *  net.neoforged.api.distmarker.Dist
- *  net.neoforged.bus.api.SubscribeEvent
- *  net.neoforged.fml.common.EventBusSubscriber
- *  net.neoforged.fml.common.EventBusSubscriber$Bus
- *  net.neoforged.neoforge.client.event.ClientTickEvent$Post
- *  net.neoforged.neoforge.network.PacketDistributor
- */
 package com.adminspec.client;
 
-import com.adminspec.client.ClientDragonFormState;
 import com.adminspec.network.DragonBreathPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -23,23 +9,36 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+/**
+ * Sends the dragon breath packet to the server while M1 is held in dragon form.
+ * Rate-limited to once per 60 ticks (3 seconds) by server-side cooldown.
+ * The actual VFX is delivered via DragonBreathVfxPayload from the server.
+ */
 @EventBusSubscriber(modid="adminspec", bus=EventBusSubscriber.Bus.GAME, value={Dist.CLIENT})
 public final class DragonBreathHandler {
-    private DragonBreathHandler() {
-    }
+
+    // Local client cooldown to avoid spamming the server
+    private static int localCooldown = 0;
+
+    private DragonBreathHandler() {}
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
-        if (!ClientDragonFormState.isActive()) {
-            return;
-        }
+        if (localCooldown > 0) localCooldown--;
+
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null) {
-            return;
-        }
-        if (mc.options.keyAttack.isDown()) {
-            PacketDistributor.sendToServer((CustomPacketPayload)new DragonBreathPayload(), (CustomPacketPayload[])new CustomPacketPayload[0]);
+        if (mc.player == null || mc.level == null) return;
+
+        ClientSpecState.Snapshot snap = ClientSpecState.get(mc.player.getUUID());
+        if (snap == null || !snap.dragonFormActive) return;
+
+        // Fire breath when M1 is held and cooldown expired
+        if (mc.options.keyAttack.isDown() && localCooldown == 0) {
+            PacketDistributor.sendToServer(
+                new DragonBreathPayload(),
+                new CustomPacketPayload[0]
+            );
+            localCooldown = 60; // match server cooldown
         }
     }
 }
-

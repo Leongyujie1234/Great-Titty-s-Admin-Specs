@@ -47,6 +47,8 @@ implements INBTSerializable<CompoundTag> {
     // Transient: set each tick by DragonFlightInputPayload from client
     private boolean dragonJumping = false;
     private boolean dragonSneaking = false;
+    private float dragonForward = 0f;
+    private float dragonStrafe = 0f;
 
     public String getSpecId() {
         return this.currentSpecId;
@@ -185,6 +187,28 @@ implements INBTSerializable<CompoundTag> {
         this.dragonSneaking = v;
     }
 
+    public float getDragonForward() {
+        return this.dragonForward;
+    }
+
+    public void setDragonForward(float v) {
+        this.dragonForward = v;
+    }
+
+    public float getDragonStrafe() {
+        return this.dragonStrafe;
+    }
+
+    public void setDragonStrafe(float v) {
+        this.dragonStrafe = v;
+    }
+
+    private final List<java.util.UUID> swordEscapeDamaged = new ArrayList<>();
+
+    public List<java.util.UUID> getSwordEscapeDamaged() {
+        return this.swordEscapeDamaged;
+    }
+
     public void startSwordEscape(Vec3 dir, Vec3 start, Vec3 end, int durationTicks) {
         this.swordEscapeDir = dir;
         this.swordEscapeStart = start;
@@ -193,6 +217,7 @@ implements INBTSerializable<CompoundTag> {
         this.swordEscapeTicksRemaining = durationTicks;
         this.swordEscapeDashing = true;
         this.swordEscapeBeheaded = false;
+        this.swordEscapeDamaged.clear();
     }
 
     public void tickSwordEscape() {
@@ -211,6 +236,7 @@ implements INBTSerializable<CompoundTag> {
         this.swordEscapeDashing = false;
         this.swordEscapeTicksRemaining = 0;
         this.swordEscapeBeheaded = false;
+        this.swordEscapeDamaged.clear();
     }
 
     public void serverTick(Player player, Spec spec) {

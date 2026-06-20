@@ -1,23 +1,5 @@
-/*
- * Decompiled with CFR 0.152.
- * 
- * Could not load the following classes:
- *  net.minecraft.client.KeyMapping
- *  net.minecraft.client.Minecraft
- *  net.minecraft.client.player.LocalPlayer
- *  net.minecraft.network.protocol.common.custom.CustomPacketPayload
- *  net.neoforged.api.distmarker.Dist
- *  net.neoforged.bus.api.SubscribeEvent
- *  net.neoforged.fml.common.EventBusSubscriber
- *  net.neoforged.fml.common.EventBusSubscriber$Bus
- *  net.neoforged.neoforge.client.event.ClientTickEvent$Post
- *  net.neoforged.neoforge.network.PacketDistributor
- */
 package com.adminspec.client;
 
-import com.adminspec.client.ClientBeamManager;
-import com.adminspec.client.ClientSpecState;
-import com.adminspec.client.MoveKeybinds;
 import com.adminspec.network.ActivateMovePayload;
 import com.adminspec.network.DragonFlightInputPayload;
 import java.util.Map;
@@ -35,8 +17,7 @@ import net.neoforged.neoforge.client.event.InputEvent;
 
 @EventBusSubscriber(modid="adminspec", bus=EventBusSubscriber.Bus.GAME, value={Dist.CLIENT})
 public final class ClientKeyHandler {
-    private ClientKeyHandler() {
-    }
+    private ClientKeyHandler() {}
 
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
@@ -44,74 +25,69 @@ public final class ClientKeyHandler {
             ClientSpecState.clientFlashTicks--;
         }
         ClientBeamManager.tick();
+
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
-        if (player == null || mc.level == null) {
-            return;
-        }
+        if (player == null || mc.level == null) return;
 
-        for (Player p : mc.level.players()) {
-            ClientSpecState.Snapshot snap = ClientSpecState.get(p.getUUID());
-            if (snap != null && snap.dragonFormActive && snap.dragonFormTicks > 0 && snap.dragonFormTicks < 4) {
-                double dist = player.distanceTo(p);
-                if (dist < 32.0) {
-                    if (p == player) {
-                        ClientSpecState.clientFlashTicks = 15;
-                    } else if (dist < 16.0) {
-                        ClientSpecState.clientFlashTicks = 8;
-                    }
-                    for (int i = 0; i < 40; ++i) {
-                        double rx = p.getX() + (p.getRandom().nextDouble() - 0.5) * 3.0;
-                        double ry = p.getY() + p.getRandom().nextDouble() * 2.0;
-                        double rz = p.getZ() + (p.getRandom().nextDouble() - 0.5) * 3.0;
-                        mc.level.addParticle(net.minecraft.core.particles.ParticleTypes.LARGE_SMOKE, rx, ry, rz, 0.0, 0.15, 0.0);
-                        mc.level.addParticle(net.minecraft.core.particles.ParticleTypes.FLASH, rx, ry, rz, 0.0, 0.0, 0.0);
-                        mc.level.addParticle(net.minecraft.core.particles.ParticleTypes.DRAGON_BREATH, rx, ry, rz, (p.getRandom().nextDouble() - 0.5) * 0.1, 0.05, (p.getRandom().nextDouble() - 0.5) * 0.1);
-                    }
-                    mc.level.playLocalSound(p.getX(), p.getY(), p.getZ(), net.minecraft.sounds.SoundEvents.GENERIC_EXPLODE.value(), net.minecraft.sounds.SoundSource.PLAYERS, 1.5f, 0.8f, false);
-                }
-                snap.dragonFormTicks = 5;
+        // Smoothly increment dragonFormTicks locally on client every tick
+        for (ClientSpecState.Snapshot snap : ClientSpecState.allSnapshots()) {
+            if (snap.dragonFormActive && snap.dragonFormTicks < 60) {
+                snap.dragonFormTicks++;
             }
         }
 
-        // Dragon form flight input — send jump/sneak state to server each tick
+        // Dragon form: send flight input (jump/sneak/forward/strafe) to server every tick
         ClientSpecState.Snapshot localSnap = ClientSpecState.get(player.getUUID());
         if (localSnap != null && localSnap.dragonFormActive) {
             boolean jumping = mc.options.keyJump.isDown();
             boolean sneaking = mc.options.keyShift.isDown();
+            // forward: W = +1, S = -1; strafe: A = -1, D = +1
+            float forward = 0f;
+            float strafe  = 0f;
+            if (mc.options.keyUp.isDown())    forward += 1f;
+            if (mc.options.keyDown.isDown())  forward -= 1f;
+            if (mc.options.keyLeft.isDown())  strafe  -= 1f;
+            if (mc.options.keyRight.isDown()) strafe  += 1f;
+
             PacketDistributor.sendToServer(
-                new DragonFlightInputPayload(jumping, sneaking),
+                new DragonFlightInputPayload(jumping, sneaking, forward, strafe),
                 new CustomPacketPayload[0]
             );
         }
 
+        // Process move keybinds
         for (Map.Entry<String, KeyMapping> entry : MoveKeybinds.all().entrySet()) {
             if (!entry.getValue().consumeClick()) continue;
-            ClientKeyHandler.sendActivate(entry.getKey());
+            sendActivate(entry.getKey());
         }
     }
 
+    /**
+     * Intercept attack (LMB) and use (RMB) while in dragon form.
+     * LMB → dragon breath via server packet (handled separately by DragonBreathHandler).
+     * RMB → fully suppressed.
+     */
     @SubscribeEvent
     public static void onInteractionKeyMappingTriggered(InputEvent.InteractionKeyMappingTriggered event) {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
-        if (player == null) {
-            return;
-        }
+        if (player == null) return;
+
         ClientSpecState.Snapshot snap = ClientSpecState.get(player.getUUID());
         if (snap != null && snap.dragonFormActive) {
-            if (event.getKeyMapping() == mc.options.keyAttack) {
+            if (event.isAttack() || event.isUseItem()) {
+                // Cancel both attack and use – breath is triggered by DragonBreathHandler
                 event.setCanceled(true);
-                event.setSwingHand(true);
-                PacketDistributor.sendToServer((CustomPacketPayload)new com.adminspec.network.DragonBreathPayload(), new CustomPacketPayload[0]);
-            } else if (event.getKeyMapping() == mc.options.keyUse) {
-                event.setCanceled(true);
+                // Do NOT call setSwingHand(true) – that would trigger an attack
             }
         }
     }
 
     private static void sendActivate(String moveId) {
-        PacketDistributor.sendToServer((CustomPacketPayload)new ActivateMovePayload(moveId), (CustomPacketPayload[])new CustomPacketPayload[0]);
+        PacketDistributor.sendToServer(
+            new ActivateMovePayload(moveId),
+            new CustomPacketPayload[0]
+        );
     }
 }
-

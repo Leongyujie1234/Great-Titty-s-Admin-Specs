@@ -11,14 +11,22 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-public record DragonFlightInputPayload(boolean jumping, boolean sneaking) implements CustomPacketPayload {
+public record DragonFlightInputPayload(
+    boolean jumping,
+    boolean sneaking,
+    float forward,
+    float strafe
+) implements CustomPacketPayload {
+
     public static final CustomPacketPayload.Type<DragonFlightInputPayload> TYPE =
             new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath("adminspec", "dragon_flight_input"));
 
     public static final StreamCodec<FriendlyByteBuf, DragonFlightInputPayload> STREAM_CODEC =
             StreamCodec.composite(
-                    ByteBufCodecs.BOOL, DragonFlightInputPayload::jumping,
-                    ByteBufCodecs.BOOL, DragonFlightInputPayload::sneaking,
+                    ByteBufCodecs.BOOL,  DragonFlightInputPayload::jumping,
+                    ByteBufCodecs.BOOL,  DragonFlightInputPayload::sneaking,
+                    ByteBufCodecs.FLOAT, DragonFlightInputPayload::forward,
+                    ByteBufCodecs.FLOAT, DragonFlightInputPayload::strafe,
                     DragonFlightInputPayload::new
             );
 
@@ -34,6 +42,8 @@ public record DragonFlightInputPayload(boolean jumping, boolean sneaking) implem
             PlayerSpecData data = PlayerSpecCapability.get(p);
             data.setDragonJumping(payload.jumping());
             data.setDragonSneaking(payload.sneaking());
+            data.setDragonForward(payload.forward());
+            data.setDragonStrafe(payload.strafe());
         });
     }
 }
