@@ -8,6 +8,8 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Sends the dragon breath packet to the server while M1 is held in dragon form.
@@ -16,6 +18,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  */
 @EventBusSubscriber(modid="adminspec", bus=EventBusSubscriber.Bus.GAME, value={Dist.CLIENT})
 public final class DragonBreathHandler {
+    private static final Logger LOGGER = LoggerFactory.getLogger("adminspec-breath");
 
     // Local client cooldown to avoid spamming the server
     private static int localCooldown = 0;
@@ -34,6 +37,7 @@ public final class DragonBreathHandler {
 
         // Fire breath when M1 is held and cooldown expired
         if (mc.options.keyAttack.isDown() && localCooldown == 0) {
+            LOGGER.info("[AdminSpec] Dragon breath triggered, sending payload");
             PacketDistributor.sendToServer(
                 new DragonBreathPayload(),
                 new CustomPacketPayload[0]

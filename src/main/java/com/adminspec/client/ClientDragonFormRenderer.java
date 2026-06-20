@@ -140,10 +140,19 @@ public final class ClientDragonFormRenderer {
         Player player = event.getEntity();
         UUID uuid = player.getUUID();
         ClientSpecState.Snapshot snapshot = ClientSpecState.get(uuid);
-        if (snapshot == null || !snapshot.dragonFormActive) return;
+        if (snapshot == null) {
+            return;
+        }
+        if (!snapshot.dragonFormActive) {
+            return;
+        }
 
         loadModel();
-        if (dragonModel == null) return;
+        if (dragonModel == null) {
+            // Model failed to load — log once and let the player render normally
+            // instead of becoming invisible.
+            return;
+        }
 
         int ticks = snapshot.dragonFormTicks;
         PoseStack pose = event.getPoseStack();
@@ -154,7 +163,6 @@ public final class ClientDragonFormRenderer {
         List<Bone> rootBones = new ArrayList<>();
         for (Bone bone : dragonModel.bones) {
             if (bone.parent == null || bone.parent.isEmpty() || bone.parent.equals("root")) {
-                // "root" bone itself has no cubes — but its children (front_body etc.) do
                 if (!bone.name.equals("root")) {
                     rootBones.add(bone);
                 }
@@ -162,10 +170,6 @@ public final class ClientDragonFormRenderer {
                 childrenMap.computeIfAbsent(bone.parent, k -> new ArrayList<>()).add(bone);
             }
         }
-
-        // Also add children of "root" explicitly since we skip the "root" bone
-        // The geo has: root → front_body → middle_body → ...
-        // front_body.parent = "root" so it's already in rootBones above
 
         ResourceLocation texture = ResourceLocation.fromNamespaceAndPath("adminspec",
             "textures/entity/ancient_sword_dragon.png");
@@ -178,13 +182,18 @@ public final class ClientDragonFormRenderer {
             event.setCanceled(true);
             pose.pushPose();
 
-            // Center on player standing position, scale to reasonable size
             float yaw = player.getViewYRot(pt);
-            pose.translate(0.0, 0.0, 0.0);
+            // Rotate model to face the same direction as the player
             pose.mulPose(Axis.YP.rotationDegrees(-yaw - 180f));
-            // Bedrock model coordinates: 1 pixel = 1/16 block
-            // The dragon body is ~100px wide; we want ~5 blocks → scale = 5/6.25 ≈ 0.8 /16
+            // Bedrock pixel scale: 1 pixel = 1/16 block
             float modelScale = 1f / 16f;
+            // The model origin is at (0,0,0) and extends ~130px in -X (tail direction).
+            // Offset to center the model on the player: shift +65px in X (in model space)
+            // so the midpoint of the ~130px body sits at the player's position.
+            // After rotation, this -X becomes the direction behind the player.
+            float centerX = 65.0f;
+            float centerY = 0.0f; // Y pivot is already at ~15px which maps to ~1 block up
+            pose.translate(centerX * modelScale, centerY * modelScale, 0.0f);
             pose.scale(modelScale, modelScale, modelScale);
 
             for (Bone root : rootBones) {
@@ -193,18 +202,15 @@ public final class ClientDragonFormRenderer {
             pose.popPose();
         } else {
             // Progressive mutation (0-60 ticks): don't cancel player render, overlay dragon parts.
-            // The actual geo skeleton is: root -> neck -> {upper_head, lower_head},
-            // and root -> front_body -> middle_body -> rear_body -> tail -> tail_fin.
-            // There are NO wing bones, so we phase the mutation as head / front-body / rear+tail.
-            // Bone pivots in Bedrock geo are model-space absolute, and renderBoneStandalone
-            // applies a net-zero pivot transform, so any subset of bones renders in place.
             pose.pushPose();
             float yaw = player.getViewYRot(pt);
             pose.mulPose(Axis.YP.rotationDegrees(-yaw - 180f));
             float modelScale = 1f / 16f;
+            float centerX = 65.0f;
+            pose.translate(centerX * modelScale, 0.0f, 0.0f);
             pose.scale(modelScale, modelScale, modelScale);
 
-            float alpha = Math.min(1.0f, ticks / 30f); // fade in
+            float alpha = Math.min(1.0f, ticks / 20f); // faster fade-in (full at tick 20)
 
             for (Bone b : dragonModel.bones) {
                 if (isActiveInPhase(b.name, ticks)) {

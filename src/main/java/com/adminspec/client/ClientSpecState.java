@@ -6,10 +6,13 @@ package com.adminspec.client;
 import com.adminspec.network.SpecStatePayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.particles.ParticleTypes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class ClientSpecState {
+    private static final Logger LOGGER = LoggerFactory.getLogger("adminspec-clientstate");
     private static final ConcurrentHashMap<UUID, Snapshot> STATES = new ConcurrentHashMap();
     public static int clientFlashTicks = 0;
 
@@ -19,6 +22,8 @@ public final class ClientSpecState {
     public static void update(SpecStatePayload payload) {
         Snapshot prev = STATES.get(payload.playerId());
         STATES.put(payload.playerId(), new Snapshot(payload.reverseFlowActive(), payload.reverseFlowCapacity(), payload.dragonFormActive(), payload.dragonFormTicks()));
+        LOGGER.info("[AdminSpec] ClientSpecState updated: uuid={} reverseFlow={} dragonForm={} ticks={}",
+            payload.playerId(), payload.reverseFlowActive(), payload.dragonFormActive(), payload.dragonFormTicks());
         if (payload.dragonFormActive() && (prev == null || !prev.dragonFormActive)) {
             playTransformVfx(payload.playerId());
         }

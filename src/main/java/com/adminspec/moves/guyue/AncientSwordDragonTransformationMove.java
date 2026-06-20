@@ -1,5 +1,6 @@
 package com.adminspec.moves.guyue;
 
+import com.adminspec.AdminSpecMod;
 import com.adminspec.capability.PlayerSpecCapability;
 import com.adminspec.capability.PlayerSpecData;
 import com.adminspec.network.DragonBreathVfxPayload;
@@ -25,12 +26,6 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 public class AncientSwordDragonTransformationMove extends SpecMove {
     public static final String ID = "ancient_sword_dragon_transformation";
-
-    // Flight constants – tuned to feel like Do a Barrel Roll style custom flight
-    private static final double FLIGHT_ACCEL    = 0.08;
-    private static final double FLIGHT_MAX_SPEED = 1.2;
-    private static final double FLIGHT_FRICTION  = 0.90;
-    private static final double VERT_ACCEL       = 0.06;
 
     private static final float  BREATH_DAMAGE    = 6.0f;
     private static final double BREATH_RANGE     = 16.0;
@@ -83,75 +78,15 @@ public class AncientSwordDragonTransformationMove extends SpecMove {
             com.adminspec.network.SpecStatePayload.broadcast(sp);
         }
 
-        // --- Custom Velocity-Based Flight ---
         // Keep mayfly+flying set so the server doesn't rubber-band us.
-        // We drive motion entirely via setDeltaMovement each tick.
+        // Actual velocity is applied in SpecEvents.onServerTickPost (after vanilla flight),
+        // which prevents vanilla creative flight from overwriting our custom movement.
         if (!sp.getAbilities().mayfly) {
             sp.getAbilities().mayfly = true;
             sp.onUpdateAbilities();
         }
-        // Keep flying mode active (stops gravity)
         sp.getAbilities().flying = true;
         sp.onUpdateAbilities();
-
-        Vec3 velocity = sp.getDeltaMovement();
-
-        if (data.getDragonFormTicks() < 20) {
-            // Force upward launch during transition animation (ignoring normal flight steer)
-            double progress = (double)data.getDragonFormTicks() / 20.0;
-            double upwardVelocity = 1.3 * (1.0 - progress);
-            sp.setDeltaMovement(velocity.x, upwardVelocity, velocity.z);
-            sp.hurtMarked = true;
-            return;
-        }
-
-        // Build desired movement direction from player-sent input
-        Vec3 look = sp.getLookAngle();
-        Vec3 moveDir = Vec3.ZERO;
-
-        float forward = data.getDragonForward();
-        float strafe  = data.getDragonStrafe();
-
-        if (forward > 0.01f) {
-            moveDir = moveDir.add(look.multiply(1, 1, 1));
-        } else if (forward < -0.01f) {
-            moveDir = moveDir.subtract(look.multiply(1, 1, 1));
-        }
-
-        if (Math.abs(strafe) > 0.01f) {
-            // Right vector = look cross up
-            Vec3 right = new Vec3(look.z, 0, -look.x).normalize();
-            if (strafe > 0f) {
-                moveDir = moveDir.subtract(right);  // strafe right
-            } else {
-                moveDir = moveDir.add(right);       // strafe left
-            }
-        }
-
-        // Vertical: jump key = up, sneak = down
-        if (data.isDragonJumping()) {
-            moveDir = moveDir.add(0, VERT_ACCEL / FLIGHT_ACCEL, 0);
-        } else if (data.isDragonSneaking()) {
-            moveDir = moveDir.subtract(0, VERT_ACCEL / FLIGHT_ACCEL, 0);
-        }
-
-        // Apply acceleration
-        if (moveDir.lengthSqr() > 1.0E-6) {
-            Vec3 accel = moveDir.normalize().scale(FLIGHT_ACCEL);
-            velocity = velocity.add(accel);
-        }
-
-        // Friction
-        velocity = velocity.scale(FLIGHT_FRICTION);
-
-        // Speed cap
-        double speed = velocity.length();
-        if (speed > FLIGHT_MAX_SPEED) {
-            velocity = velocity.scale(FLIGHT_MAX_SPEED / speed);
-        }
-
-        sp.setDeltaMovement(velocity);
-        sp.hurtMarked = true;
     }
 
     private void transform(ServerPlayer player, PlayerSpecData data) {
@@ -236,31 +171,43 @@ public class AncientSwordDragonTransformationMove extends SpecMove {
 
     public static void handleBreath(ServerPlayer player) {
         PlayerSpecData data = PlayerSpecCapability.get(player);
-        if (!data.isDragonFormActive()) return;
-        if (data.getDragonBreathCooldown() > 0) return;
+        if (!data.isDragonFormActive()) {
+            AdminSpecMod.LOGGER.info("[AdminSpec] Breath ignored: not in dragon form");
+            return;
+        }
+        if (data.getDragonBreathCooldown() > 0) {
+            AdminSpecMod.LOGGER.info("[AdminSpec] Breath ignored: cooldown {}", data.getDragonBreathCooldown());
+            return;
+        }
+        AdminSpecMod.LOGGER.info("[AdminSpec] Breath triggered for {}", player.getName().getString());
 
         ServerLevel sl = (ServerLevel) player.level();
         Vec3 eye  = player.getEyePosition();
         Vec3 look = player.getLookAngle();
 
         // Server-side particles (visible to all via broadcast overload)
-        for (double d = 0.5; d < BREATH_RANGE; d += 0.6) {
+        for (double d = 0.5; d < BREATH_RANGE; d += 0.5) {
             Vec3 pos = eye.add(look.scale(d));
-            double spread = d * 0.06;
+            double spread = d * 0.07;
             // CRIT particles – bright visible sword qi
             sl.sendParticles(ParticleTypes.CRIT,
-                pos.x, pos.y, pos.z, 3, spread, spread, spread, 0.05);
+                pos.x, pos.y, pos.z, 4, spread, spread, spread, 0.05);
             sl.sendParticles(ParticleTypes.ENCHANTED_HIT,
-                pos.x, pos.y, pos.z, 2, spread, spread, spread, 0.03);
-            if (d % 1.8 < 0.6) {
+                pos.x, pos.y, pos.z, 3, spread, spread, spread, 0.03);
+            if (d % 1.5 < 0.5) {
                 sl.sendParticles(ParticleTypes.SWEEP_ATTACK,
                     pos.x, pos.y, pos.z, 1, spread * 2, spread * 2, spread * 2, 0.0);
+            }
+            if (d % 3.0 < 0.5) {
+                sl.sendParticles(ParticleTypes.ELECTRIC_SPARK,
+                    pos.x, pos.y, pos.z, 4, spread, spread, spread, 0.1);
             }
         }
 
         // End burst
         Vec3 tip = eye.add(look.scale(BREATH_RANGE));
-        sl.sendParticles(ParticleTypes.EXPLOSION, tip.x, tip.y, tip.z, 1, 0.5, 0.5, 0.5, 0.1);
+        sl.sendParticles(ParticleTypes.EXPLOSION, tip.x, tip.y, tip.z, 3, 0.8, 0.8, 0.8, 0.1);
+        sl.sendParticles(ParticleTypes.FLASH, tip.x, tip.y, tip.z, 1, 0, 0, 0, 0);
 
         // Damage entities in beam
         AABB beamBox = player.getBoundingBox()

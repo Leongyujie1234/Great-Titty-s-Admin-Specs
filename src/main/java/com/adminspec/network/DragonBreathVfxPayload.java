@@ -68,9 +68,9 @@ public record DragonBreathVfxPayload(
             Vec3 look = new Vec3(p.lookX(), p.lookY(), p.lookZ());
 
             // Spawn a dense sword-qi beam of client particles along the beam path
-            for (double d = 0.3; d < 16.0; d += 0.45) {
+            for (double d = 0.3; d < 16.0; d += 0.35) {
                 Vec3 pos = eye.add(look.scale(d));
-                double spread = d * 0.05;
+                double spread = d * 0.06;
 
                 // Primary: white crit sparkles
                 level.addParticle(ParticleTypes.CRIT,
@@ -86,23 +86,34 @@ public record DragonBreathVfxPayload(
                     pos.z + (Math.random() - 0.5) * spread * 1.5,
                     (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1);
 
-                // Sweep attacks every ~1.5 blocks
-                if (d % 1.5 < 0.45) {
+                // Sweep attacks every ~1 block
+                if (d % 1.0 < 0.35) {
                     level.addParticle(ParticleTypes.SWEEP_ATTACK,
                         pos.x, pos.y, pos.z,
                         0, 0, 0);
+                }
+
+                // Additional electric sparkles for visibility
+                if (d % 2.0 < 0.35) {
+                    level.addParticle(ParticleTypes.ELECTRIC_SPARK,
+                        pos.x + (Math.random() - 0.5) * spread * 2,
+                        pos.y + (Math.random() - 0.5) * spread * 2,
+                        pos.z + (Math.random() - 0.5) * spread * 2,
+                        (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2);
                 }
             }
 
             // Tip explosion
             Vec3 tip = eye.add(look.scale(16.0));
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < 12; i++) {
                 level.addParticle(ParticleTypes.EXPLOSION,
-                    tip.x + (Math.random() - 0.5) * 1.5,
-                    tip.y + (Math.random() - 0.5) * 1.5,
-                    tip.z + (Math.random() - 0.5) * 1.5,
+                    tip.x + (Math.random() - 0.5) * 2.0,
+                    tip.y + (Math.random() - 0.5) * 2.0,
+                    tip.z + (Math.random() - 0.5) * 2.0,
                     0, 0, 0);
             }
+            // Flash at tip for extra visibility
+            level.addParticle(ParticleTypes.FLASH, tip.x, tip.y, tip.z, 0, 0, 0);
 
             // Sound feedback
             if (mc.player != null) {
