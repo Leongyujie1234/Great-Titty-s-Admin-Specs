@@ -1,0 +1,4 @@
+cd kubejs
+get server_scripts/jurassic_ores.js "C:\Users\great generos\Downloads\AdminSpec\jurassic_ores.js"
+rm server_scripts/jurassic_ores.js
+quit

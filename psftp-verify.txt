@@ -1,0 +1,3 @@
+ls kubejs/server_scripts
+ls kubejs/startup_scripts
+quit

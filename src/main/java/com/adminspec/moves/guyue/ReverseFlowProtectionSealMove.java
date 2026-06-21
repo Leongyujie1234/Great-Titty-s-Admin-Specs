@@ -81,6 +81,15 @@ extends SpecMove {
         double px = player.getX();
         double py = player.getY();
         double pz = player.getZ();
+
+        // Guaranteed visible beacon at player position
+        sl.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE, px, py + 0.5, pz, 1, 0.3, 0.5, 0.3, 0.05);
+        if (Math.random() < 0.3) {
+            sl.sendParticles(ParticleTypes.LAVA,
+                px + (Math.random() - 0.5) * 0.5, py + Math.random() * 1.5, pz + (Math.random() - 0.5) * 0.5,
+                1, 0, 0, 0, 0);
+        }
+
         // Glowing END_ROD ring — highly visible to the player and nearby players
         for (i = 0; i < 10; ++i) {
             angle = Math.random() * Math.PI * 2.0;

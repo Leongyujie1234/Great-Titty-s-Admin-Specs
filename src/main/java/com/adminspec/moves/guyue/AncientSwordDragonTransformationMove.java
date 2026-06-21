@@ -228,6 +228,10 @@ public class AncientSwordDragonTransformationMove extends SpecMove {
         Vec3 eye  = player.getEyePosition();
         Vec3 look = player.getLookAngle();
 
+        // Guaranteed visible beacon
+        sl.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE, eye.x, eye.y, eye.z, 1, 0, 0, 0, 0.1);
+        sl.sendParticles(ParticleTypes.LAVA, eye.x, eye.y, eye.z, 3, 0.3, 0.3, 0.3, 0);
+
         // Server-side particles (visible to all via broadcast overload)
         for (double d = 0.5; d < BREATH_RANGE; d += 0.5) {
             Vec3 pos = eye.add(look.scale(d));

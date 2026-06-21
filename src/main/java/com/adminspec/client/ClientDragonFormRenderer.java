@@ -193,7 +193,7 @@ public final class ClientDragonFormRenderer {
             float yaw = player.getViewYRot(pt);
             pose.mulPose(Axis.YP.rotationDegrees(-yaw - 90));
             float modelScale = 1f / 16f;
-            float centerX = 65.0f;
+            float centerX = -20.0f;
             pose.translate(centerX * modelScale, 0.0f, 0.0f);
             pose.scale(modelScale, modelScale, modelScale);
 
@@ -206,7 +206,7 @@ public final class ClientDragonFormRenderer {
             float yaw = player.getViewYRot(pt);
             pose.mulPose(Axis.YP.rotationDegrees(-yaw - 90));
             float modelScale = 1f / 16f;
-            float centerX = 65.0f;
+            float centerX = -20.0f;
             pose.translate(centerX * modelScale, 0.0f, 0.0f);
             pose.scale(modelScale, modelScale, modelScale);
 

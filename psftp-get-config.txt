@@ -1,0 +1,2 @@
+get config/ftbessentials.snbt "C:\Users\great generos\Downloads\AdminSpec\ftbessentials.snbt"
+quit

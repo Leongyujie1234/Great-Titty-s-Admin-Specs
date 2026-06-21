@@ -1,0 +1,3 @@
+cd kubejs/startup_scripts
+put "C:\Users\great generos\Downloads\AdminSpec\jurassic_ores.js"
+quit

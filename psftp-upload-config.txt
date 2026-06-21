@@ -1,0 +1,3 @@
+cd config
+put "C:\Users\great generos\Downloads\AdminSpec\ftbessentials.snbt"
+quit
