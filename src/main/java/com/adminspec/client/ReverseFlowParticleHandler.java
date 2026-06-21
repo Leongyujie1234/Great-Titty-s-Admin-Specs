@@ -39,18 +39,21 @@ public final class ReverseFlowParticleHandler {
         double pz = player.getZ();
         int ticks = player.tickCount;
 
-        // Dense blue dust ring using END_ROD (glowing white sparkle that works)
-        for (int i = 0; i < 6; i++) {
+        // Dense glowing ring around the body — END_ROD guaranteed visible
+        for (int i = 0; i < 10; i++) {
             double angle = RANDOM.nextDouble() * Math.PI * 2.0;
-            double yOffset = RANDOM.nextDouble() * 2.0;
-            double radius = 0.5 + RANDOM.nextDouble() * 0.5;
+            double yOffset = RANDOM.nextDouble() * 2.2;
+            double radius = 0.5 + RANDOM.nextDouble() * 0.6;
             double dx = px + Math.cos(angle) * radius;
             double dz = pz + Math.sin(angle) * radius;
             level.addParticle(ParticleTypes.END_ROD, dx, py + yOffset, dz, 0, 0, 0);
             level.addParticle(ParticleTypes.SOUL_FIRE_FLAME, dx, py + yOffset, dz, 0, 0.02, 0);
+            if (i % 2 == 0) {
+                level.addParticle(ParticleTypes.WAX_ON, dx, py + yOffset, dz, 0, 0, 0);
+            }
         }
 
-        // Rising water helix
+        // Helix 1: rising water
         for (int i = 0; i < 3; i++) {
             double angle = (ticks * 0.2) + (i * Math.PI * 2.0 / 3.0);
             double yOffset = ((ticks + i * 8) % 24) / 24.0 * 2.0;
@@ -61,7 +64,7 @@ public final class ReverseFlowParticleHandler {
             level.addParticle(ParticleTypes.FALLING_WATER, dx, py + yOffset, dz, 0.0, -0.01, 0.0);
         }
 
-        // Descending helix with blue INSTANT_EFFECT swirls
+        // Helix 2: descending
         for (int i = 0; i < 2; i++) {
             double angle = (-ticks * 0.15) + (i * Math.PI);
             double yOffset = 2.0 - (((ticks + i * 12) % 24) / 24.0 * 2.0);
@@ -69,16 +72,13 @@ public final class ReverseFlowParticleHandler {
             double dx = px + Math.cos(angle) * radius;
             double dz = pz + Math.sin(angle) * radius;
             level.addParticle(ParticleTypes.DRIPPING_WATER, dx, py + yOffset, dz, 0.0, 0.0, 0.0);
-            if (RANDOM.nextFloat() < 0.4f) {
-                level.addParticle(ParticleTypes.INSTANT_EFFECT, dx, py + yOffset, dz, 0.1, 0.5, 0.9);
-                level.addParticle(ParticleTypes.WAX_ON, dx, py + yOffset, dz, 0, 0, 0);
-            }
+            level.addParticle(ParticleTypes.END_ROD, dx, py + yOffset, dz, 0, 0, 0);
         }
 
-        // Pulsing blue ring at chest level using END_ROD
+        // Pulsing ring at chest level (4 points, large END_ROD)
         double ringRadius = 0.6 + Math.sin(ticks * 0.1) * 0.15;
-        for (int i = 0; i < 4; i++) {
-            double angle = (ticks * 0.15) + (i * Math.PI / 2.0);
+        for (int i = 0; i < 6; i++) {
+            double angle = (ticks * 0.15) + (i * Math.PI / 3.0);
             double dx = px + Math.cos(angle) * ringRadius;
             double dz = pz + Math.sin(angle) * ringRadius;
             level.addParticle(ParticleTypes.END_ROD, dx, py + 1.0, dz, 0, 0, 0);

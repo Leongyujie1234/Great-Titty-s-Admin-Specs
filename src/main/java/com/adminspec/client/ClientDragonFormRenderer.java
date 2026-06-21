@@ -146,15 +146,31 @@ public final class ClientDragonFormRenderer {
         }
 
         loadModel();
-        if (dragonModel == null) {
-            // Model failed to load — log once and let the player render normally
-            // instead of becoming invisible.
-            return;
-        }
 
         int ticks = snapshot.dragonFormTicks;
         PoseStack pose = event.getPoseStack();
         MultiBufferSource bufSource = event.getMultiBufferSource();
+        float pt = event.getPartialTick();
+
+        ResourceLocation texture = ResourceLocation.fromNamespaceAndPath("adminspec",
+            "textures/entity/ancient_sword_dragon.png");
+        int light = event.getPackedLight();
+
+        if (dragonModel == null) {
+            // Fallback: render a visible colored box outline so player sees SOMETHING
+            event.setCanceled(true);
+            pose.pushPose();
+            float yaw = player.getViewYRot(pt);
+            pose.mulPose(Axis.YP.rotationDegrees(-yaw));
+            float s = 2.0f;
+            pose.scale(s, s, s);
+            VertexConsumer consumer = bufSource.getBuffer(RenderType.entityCutoutNoCull(
+                ResourceLocation.withDefaultNamespace("textures/entity/enderdragon/dragon.png")));
+            drawBox(pose.last(), consumer, -0.5f, -0.5f, -0.5f, 1f, 1f, 1f,
+                0, 0, 64, 64, light, 0x00A00000, 1f, 1f, 1f, 1f);
+            pose.popPose();
+            return;
+        }
 
         // Build bone hierarchy
         Map<String, List<Bone>> childrenMap = new HashMap<>();
@@ -169,11 +185,7 @@ public final class ClientDragonFormRenderer {
             }
         }
 
-        ResourceLocation texture = ResourceLocation.fromNamespaceAndPath("adminspec",
-            "textures/entity/ancient_sword_dragon.png");
         VertexConsumer consumer = bufSource.getBuffer(RenderType.entityCutoutNoCull(texture));
-        int light = event.getPackedLight();
-        float pt = event.getPartialTick();
 
         if (ticks >= 60) {
             // Full dragon: hide player, show full dragon model
@@ -181,17 +193,10 @@ public final class ClientDragonFormRenderer {
             pose.pushPose();
 
             float yaw = player.getViewYRot(pt);
-            // Rotate model to face the same direction as the player
-            pose.mulPose(Axis.YP.rotationDegrees(-yaw - 180f));
-            // Bedrock pixel scale: 1 pixel = 1/16 block
+            pose.mulPose(Axis.YP.rotationDegrees(-yaw));
             float modelScale = 1f / 16f;
-            // The model origin is at (0,0,0) and extends ~130px in -X (tail direction).
-            // Offset to center the model on the player: shift +65px in X (in model space)
-            // so the midpoint of the ~130px body sits at the player's position.
-            // After rotation, this -X becomes the direction behind the player.
             float centerX = 65.0f;
-            float centerY = 0.0f; // Y pivot is already at ~15px which maps to ~1 block up
-            pose.translate(centerX * modelScale, centerY * modelScale, 0.0f);
+            pose.translate(centerX * modelScale, 0.0f, 0.0f);
             pose.scale(modelScale, modelScale, modelScale);
 
             for (Bone root : rootBones) {
@@ -202,13 +207,13 @@ public final class ClientDragonFormRenderer {
             // Progressive mutation (0-60 ticks): don't cancel player render, overlay dragon parts.
             pose.pushPose();
             float yaw = player.getViewYRot(pt);
-            pose.mulPose(Axis.YP.rotationDegrees(-yaw - 180f));
+            pose.mulPose(Axis.YP.rotationDegrees(-yaw));
             float modelScale = 1f / 16f;
             float centerX = 65.0f;
             pose.translate(centerX * modelScale, 0.0f, 0.0f);
             pose.scale(modelScale, modelScale, modelScale);
 
-            float alpha = Math.min(1.0f, ticks / 20f); // faster fade-in (full at tick 20)
+            float alpha = Math.min(1.0f, ticks / 20f);
 
             for (Bone b : dragonModel.bones) {
                 if (isActiveInPhase(b.name, ticks)) {

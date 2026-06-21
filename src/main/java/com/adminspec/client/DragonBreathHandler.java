@@ -50,33 +50,50 @@ public final class DragonBreathHandler {
     private static void spawnClientBreathVfx(ClientLevel level, net.minecraft.client.player.LocalPlayer player) {
         Vec3 eye = player.getEyePosition();
         Vec3 look = player.getLookAngle();
-        for (double d = 0.3; d < 16.0; d += 0.5) {
+        // Dense beam of particles for instant visual feedback
+        for (double d = 0.3; d < 16.0; d += 0.35) {
             Vec3 pos = eye.add(look.scale(d));
-            double spread = d * 0.06;
+            double spread = d * 0.07;
             level.addParticle(ParticleTypes.CRIT,
                 pos.x + (Math.random() - 0.5) * spread,
                 pos.y + (Math.random() - 0.5) * spread,
                 pos.z + (Math.random() - 0.5) * spread,
-                look.x * 0.3, look.y * 0.3, look.z * 0.3);
+                look.x * 0.4, look.y * 0.4, look.z * 0.4);
             level.addParticle(ParticleTypes.ENCHANTED_HIT,
                 pos.x + (Math.random() - 0.5) * spread,
                 pos.y + (Math.random() - 0.5) * spread,
                 pos.z + (Math.random() - 0.5) * spread,
                 0, 0, 0);
-            if (d % 1.5 < 0.5) {
-                level.addParticle(ParticleTypes.SWEEP_ATTACK,
-                    pos.x, pos.y, pos.z, 0, 0, 0);
+            level.addParticle(ParticleTypes.END_ROD,
+                pos.x + (Math.random() - 0.5) * spread * 0.5,
+                pos.y + (Math.random() - 0.5) * spread * 0.5,
+                pos.z + (Math.random() - 0.5) * spread * 0.5,
+                0, 0, 0);
+            if (d % 1.5 < 0.35) {
+                level.addParticle(ParticleTypes.SWEEP_ATTACK, pos.x, pos.y, pos.z, 0, 0, 0);
+            }
+            if (d % 2.5 < 0.35) {
+                level.addParticle(ParticleTypes.ELECTRIC_SPARK,
+                    pos.x + (Math.random() - 0.5) * spread * 1.5,
+                    pos.y + (Math.random() - 0.5) * spread * 1.5,
+                    pos.z + (Math.random() - 0.5) * spread * 1.5,
+                    0, 0, 0);
             }
         }
-        // Tip burst
+        // Tip burst with multiple particle types for guaranteed visibility
         Vec3 tip = eye.add(look.scale(16.0));
         level.addParticle(ParticleTypes.FLASH, tip.x, tip.y, tip.z, 0, 0, 0);
-        for (int i = 0; i < 6; i++) {
+        level.addParticle(ParticleTypes.END_ROD, tip.x, tip.y + 0.5, tip.z, 0, 0, 0);
+        for (int i = 0; i < 12; i++) {
             level.addParticle(ParticleTypes.EXPLOSION,
-                tip.x + (Math.random() - 0.5) * 2,
-                tip.y + (Math.random() - 0.5) * 2,
-                tip.z + (Math.random() - 0.5) * 2,
+                tip.x + (Math.random() - 0.5) * 2.5,
+                tip.y + (Math.random() - 0.5) * 2.5,
+                tip.z + (Math.random() - 0.5) * 2.5,
                 0, 0, 0);
         }
+        // Sound
+        level.playLocalSound(eye.x, eye.y, eye.z,
+            net.minecraft.sounds.SoundEvents.PLAYER_ATTACK_SWEEP,
+            net.minecraft.sounds.SoundSource.PLAYERS, 1.5f, 0.7f, false);
     }
 }
