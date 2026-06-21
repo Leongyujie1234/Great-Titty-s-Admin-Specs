@@ -157,14 +157,13 @@ public final class ClientDragonFormRenderer {
         int light = event.getPackedLight();
 
         if (dragonModel == null) {
-            // Fallback: render a visible colored box outline so player sees SOMETHING
             event.setCanceled(true);
             pose.pushPose();
             float yaw = player.getViewYRot(pt);
-            pose.mulPose(Axis.YP.rotationDegrees(-yaw));
+            pose.mulPose(Axis.YP.rotationDegrees(-yaw - 90));
             float s = 2.0f;
             pose.scale(s, s, s);
-            VertexConsumer consumer = bufSource.getBuffer(RenderType.entityCutoutNoCull(
+            VertexConsumer consumer = bufSource.getBuffer(RenderType.entityTranslucent(
                 ResourceLocation.withDefaultNamespace("textures/entity/enderdragon/dragon.png")));
             drawBox(pose.last(), consumer, -0.5f, -0.5f, -0.5f, 1f, 1f, 1f,
                 0, 0, 64, 64, light, 0x00A00000, 1f, 1f, 1f, 1f);
@@ -185,15 +184,14 @@ public final class ClientDragonFormRenderer {
             }
         }
 
-        VertexConsumer consumer = bufSource.getBuffer(RenderType.entityCutoutNoCull(texture));
+        VertexConsumer consumer = bufSource.getBuffer(RenderType.entityTranslucent(texture));
 
         if (ticks >= 60) {
-            // Full dragon: hide player, show full dragon model
             event.setCanceled(true);
             pose.pushPose();
 
             float yaw = player.getViewYRot(pt);
-            pose.mulPose(Axis.YP.rotationDegrees(-yaw));
+            pose.mulPose(Axis.YP.rotationDegrees(-yaw - 90));
             float modelScale = 1f / 16f;
             float centerX = 65.0f;
             pose.translate(centerX * modelScale, 0.0f, 0.0f);
@@ -204,10 +202,9 @@ public final class ClientDragonFormRenderer {
             }
             pose.popPose();
         } else {
-            // Progressive mutation (0-60 ticks): don't cancel player render, overlay dragon parts.
             pose.pushPose();
             float yaw = player.getViewYRot(pt);
-            pose.mulPose(Axis.YP.rotationDegrees(-yaw));
+            pose.mulPose(Axis.YP.rotationDegrees(-yaw - 90));
             float modelScale = 1f / 16f;
             float centerX = 65.0f;
             pose.translate(centerX * modelScale, 0.0f, 0.0f);

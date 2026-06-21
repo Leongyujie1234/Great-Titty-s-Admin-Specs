@@ -1,0 +1,2 @@
+get run.sh "C:\Users\great generos\Downloads\AdminSpec\run.sh"
+quit

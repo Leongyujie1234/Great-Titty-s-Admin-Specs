@@ -9,12 +9,16 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Random;
 
 @EventBusSubscriber(modid="adminspec", bus=EventBusSubscriber.Bus.GAME, value={Dist.CLIENT})
 public final class ReverseFlowParticleHandler {
+    private static final Logger LOGGER = LoggerFactory.getLogger("adminspec-reverseflow");
     private static final Random RANDOM = new Random();
+    private static boolean debugOnce = false;
 
     private ReverseFlowParticleHandler() {
     }
@@ -26,10 +30,25 @@ public final class ReverseFlowParticleHandler {
         if (level == null) {
             return;
         }
+        boolean found = false;
         for (Player player : level.players()) {
             ClientSpecState.Snapshot snap = ClientSpecState.get(player.getUUID());
-            if (snap == null || !snap.reverseFlowActive) continue;
+            if (snap == null) continue;
+            if (!snap.reverseFlowActive) continue;
+            found = true;
             spawnRobe(level, player);
+            // Debug: force a visible particle at player position every few ticks
+            if (player.tickCount % 20 == 0) {
+                LOGGER.info("[AdminSpec] ReverseFlow active for {}", player.getName().getString());
+                level.addParticle(ParticleTypes.FLAME,
+                    player.getX(), player.getY() + 1.0, player.getZ(),
+                    0, 0.1, 0);
+            }
+        }
+        if (!found && !debugOnce) {
+            debugOnce = true;
+        } else if (found) {
+            debugOnce = false;
         }
     }
 

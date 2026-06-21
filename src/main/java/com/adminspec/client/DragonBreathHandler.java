@@ -24,6 +24,7 @@ public final class DragonBreathHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger("adminspec-breath");
 
     private static int localCooldown = 0;
+    private static boolean debugOnce = false;
 
     private DragonBreathHandler() {}
 
@@ -35,15 +36,27 @@ public final class DragonBreathHandler {
         if (mc.player == null || mc.level == null) return;
 
         ClientSpecState.Snapshot snap = ClientSpecState.get(mc.player.getUUID());
-        if (snap == null || !snap.dragonFormActive) return;
+        if (snap == null) {
+            if (!debugOnce) {
+                LOGGER.info("[AdminSpec] DragonBreathHandler: no state snapshot for {}", mc.player.getUUID());
+                debugOnce = true;
+            }
+            return;
+        }
+        debugOnce = false;
 
-        if (mc.options.keyAttack.isDown() && localCooldown == 0) {
-            LOGGER.info("[AdminSpec] Dragon breath triggered");
-            // Send to server for damage + VFX broadcast
-            PacketDistributor.sendToServer(new DragonBreathPayload());
-            // Spawn immediate client-side particles so player sees something
+        if (!snap.dragonFormActive) {
+            return;
+        }
+
+        // Always spawn client VFX when M1 is held (no local cooldown for particles)
+        if (mc.options.keyAttack.isDown()) {
+            if (localCooldown == 0) {
+                LOGGER.info("[AdminSpec] Dragon breath triggered (cooldown available)");
+                PacketDistributor.sendToServer(new DragonBreathPayload());
+                localCooldown = 60;
+            }
             spawnClientBreathVfx(mc.level, mc.player);
-            localCooldown = 60;
         }
     }
 
