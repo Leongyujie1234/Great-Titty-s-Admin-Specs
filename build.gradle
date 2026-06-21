@@ -13,6 +13,10 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+repositories {
+    maven { url = 'https://maven.azuredoom.com/mods' }
+}
+
 neoForge {
     version = project.neo_version
 
@@ -78,4 +82,8 @@ tasks.withType(ProcessResources).configureEach {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 21
+}
+
+dependencies {
+    implementation "mod.azure.azurelib:azurelib-neo-${minecraft_version}:${azurelib_version}"
 }

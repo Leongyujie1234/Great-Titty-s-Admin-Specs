@@ -1,5 +1,6 @@
 package com.adminspec.moves.dio;
 
+import com.adminspec.entity.TheWorldStandEntity;
 import com.adminspec.spec.MoveContext;
 import com.adminspec.spec.SpecMove;
 import net.minecraft.core.particles.ParticleTypes;
@@ -34,6 +35,8 @@ public class DioTimeStopMove extends SpecMove {
         if (!(player instanceof ServerPlayer sp)) return;
         DioStandState.ensureStand(sp);
         if (DioStandState.TIMESTOP_TICKS.getOrDefault(sp.getUUID(), 0) > 0) return;
+        TheWorldStandEntity stand = DioStandState.getStand(sp);
+        if (stand != null) stand.playAnimation("animation.theworld.timestop");
 
         ServerLevel sl = (ServerLevel) sp.level();
         AABB area = sp.getBoundingBox().inflate(RADIUS);

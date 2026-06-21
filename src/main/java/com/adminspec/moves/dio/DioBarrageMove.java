@@ -1,5 +1,6 @@
 package com.adminspec.moves.dio;
 
+import com.adminspec.entity.TheWorldStandEntity;
 import com.adminspec.spec.MoveContext;
 import com.adminspec.spec.SpecMove;
 import net.minecraft.core.particles.ParticleTypes;
@@ -31,6 +32,8 @@ public class DioBarrageMove extends SpecMove {
         if (!(player instanceof ServerPlayer sp)) return;
         DioStandState.ensureStand(sp);
         if (DioStandState.BARRAGE_TICKS.getOrDefault(sp.getUUID(), 0) > 0) return;
+        TheWorldStandEntity stand = DioStandState.getStand(sp);
+        if (stand != null) stand.playAnimation("animation.theworld.barrage");
         DioStandState.BARRAGE_TICKS.put(sp.getUUID(), DioStandState.BARRAGE_DURATION);
         sp.sendSystemMessage(Component.literal("§e§lMUDA MUDA MUDA!"));
     }

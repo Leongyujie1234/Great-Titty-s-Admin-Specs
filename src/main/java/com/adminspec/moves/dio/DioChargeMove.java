@@ -34,6 +34,7 @@ public class DioChargeMove extends SpecMove {
         if (DioStandState.CHARGE_TICKS.getOrDefault(sp.getUUID(), 0) > 0) return;
         TheWorldStandEntity stand = DioStandState.getStand(sp);
         if (stand == null) return;
+        stand.playAnimation("animation.theworld.charge");
         // Store the charge trajectory: direction is player's look, starting from stand's position
         Vec3 dir = sp.getLookAngle();
         stand.getPersistentData().putDouble("chargeDirX", dir.x);
