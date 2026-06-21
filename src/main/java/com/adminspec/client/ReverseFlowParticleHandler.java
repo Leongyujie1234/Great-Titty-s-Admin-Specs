@@ -29,12 +29,13 @@ public final class ReverseFlowParticleHandler {
         ClientLevel level = mc.level;
         if (level == null || mc.player == null) return;
 
-        // ULTRA-SIMPLE TEST: always spawn a flame at player position
-        level.addParticle(ParticleTypes.FLAME,
+        // Guaranteed visible beacon smoke at player position every tick
+        level.addParticle(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
             mc.player.getX(), mc.player.getY() + 0.5, mc.player.getZ(),
-            0, 0.1, 0);
-        mc.player.sendSystemMessage(
-            net.minecraft.network.chat.Component.literal("§b[DEBUG] ReverseFlow handler ticking"));
+            0, 0.15, 0);
+        level.addParticle(ParticleTypes.FLASH,
+            mc.player.getX(), mc.player.getY() + 0.8, mc.player.getZ(),
+            0, 0, 0);
 
         // Also check real state and spawn robe
         for (Player player : level.players()) {
@@ -42,7 +43,6 @@ public final class ReverseFlowParticleHandler {
             if (snap == null) continue;
             if (!snap.reverseFlowActive) continue;
             spawnRobe(level, player);
-            LOGGER.info("[AdminSpec] ReverseFlow active for {}", player.getName().getString());
         }
     }
 

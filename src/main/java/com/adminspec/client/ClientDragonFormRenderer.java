@@ -147,6 +147,11 @@ public final class ClientDragonFormRenderer {
 
         loadModel();
 
+        // Skip dragon render in first person to avoid see-through from camera inside model
+        if (Minecraft.getInstance().options.getCameraType().isFirstPerson()) {
+            return;
+        }
+
         int ticks = snapshot.dragonFormTicks;
         PoseStack pose = event.getPoseStack();
         MultiBufferSource bufSource = event.getMultiBufferSource();
@@ -197,6 +202,7 @@ public final class ClientDragonFormRenderer {
             pose.translate(centerX * modelScale, 0.0f, 0.0f);
             pose.scale(modelScale, modelScale, modelScale);
 
+            renderFill(pose.last(), consumer, light);
             for (Bone root : rootBones) {
                 renderBone(pose, consumer, root, childrenMap, light, 1f, 1f, 1f, 1f, pt, player);
             }
@@ -212,6 +218,7 @@ public final class ClientDragonFormRenderer {
 
             float alpha = Math.min(1.0f, ticks / 20f);
 
+            renderFill(pose.last(), consumer, light);
             for (Bone b : dragonModel.bones) {
                 if (isActiveInPhase(b.name, ticks)) {
                     renderBoneStandalone(pose, consumer, b, light, alpha, pt, player);
@@ -368,6 +375,10 @@ public final class ClientDragonFormRenderer {
      * Draws a Bedrock-style box. Coordinates are in pixel units (not divided by 16 yet —
      * the overall modelScale (1/16) is already applied via the PoseStack).
      */
+    private static void renderFill(PoseStack.Pose entry, VertexConsumer consumer, int light) {
+        drawBox(entry, consumer, -8, 12, -8, 16, 16, 16, 32, 32, 64, 64, light, OverlayTexture.NO_OVERLAY, 0.3f, 0.3f, 0.3f, 0.3f);
+    }
+
     private static void drawBox(
         PoseStack.Pose entry, VertexConsumer consumer,
         float x, float y, float z,

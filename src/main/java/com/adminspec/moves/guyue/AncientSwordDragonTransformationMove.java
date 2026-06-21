@@ -228,9 +228,11 @@ public class AncientSwordDragonTransformationMove extends SpecMove {
         Vec3 eye  = player.getEyePosition();
         Vec3 look = player.getLookAngle();
 
-        // Guaranteed visible beacon
-        sl.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE, eye.x, eye.y, eye.z, 1, 0, 0, 0, 0.1);
-        sl.sendParticles(ParticleTypes.LAVA, eye.x, eye.y, eye.z, 3, 0.3, 0.3, 0.3, 0);
+        // Guaranteed visible markers at player position
+        sl.sendParticles(ParticleTypes.EXPLOSION, eye.x, eye.y, eye.z, 2, 0.3, 0.3, 0.3, 0);
+        sl.sendParticles(ParticleTypes.FLASH, eye.x, eye.y, eye.z, 1, 0, 0, 0, 0);
+        sl.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE, eye.x, eye.y, eye.z, 3, 0.3, 0.3, 0.3, 0.1);
+        sl.sendParticles(ParticleTypes.LAVA, eye.x, eye.y, eye.z, 5, 0.4, 0.4, 0.4, 0);
 
         // Server-side particles (visible to all via broadcast overload)
         for (double d = 0.5; d < BREATH_RANGE; d += 0.5) {
@@ -271,7 +273,7 @@ public class AncientSwordDragonTransformationMove extends SpecMove {
             v.hurt(sl.damageSources().playerAttack(player), BREATH_DAMAGE);
         }
 
-        data.setDragonBreathCooldown(60); // 3 seconds
+        data.setDragonBreathCooldown(15); // 0.75 seconds
 
         // Tell all nearby clients to play local VFX
         PacketDistributor.sendToPlayersNear(

@@ -52,20 +52,22 @@ public final class DragonBreathHandler {
         // Always spawn client VFX when M1 is held (no local cooldown for particles)
         if (mc.options.keyAttack.isDown()) {
             if (localCooldown == 0) {
-                LOGGER.info("[AdminSpec] Dragon breath triggered (cooldown available)");
                 PacketDistributor.sendToServer(new DragonBreathPayload());
-                localCooldown = 60;
+                localCooldown = 10;
             }
             spawnClientBreathVfx(mc.level, mc.player);
         }
     }
 
     private static void spawnClientBreathVfx(ClientLevel level, net.minecraft.client.player.LocalPlayer player) {
-        // ULTRA-SIMPLE TEST: flame particle at player feet every tick
-        level.addParticle(ParticleTypes.FLAME,
+        // Guaranteed visible particles every tick while holding M1
+        level.addParticle(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE,
             player.getX(), player.getY() + 0.5, player.getZ(),
-            0, 0.1, 0);
-        net.minecraft.network.chat.Component msg = net.minecraft.network.chat.Component.literal("§c[DEBUG] Breath VFX spawned");
-        if (player != null) player.sendSystemMessage(msg);
+            0, 0.15, 0);
+        level.addParticle(ParticleTypes.LAVA,
+            player.getX() + (player.getRandom().nextDouble() - 0.5) * 0.5,
+            player.getY() + player.getRandom().nextDouble() * 1.5,
+            player.getZ() + (player.getRandom().nextDouble() - 0.5) * 0.5,
+            0, 0, 0);
     }
 }

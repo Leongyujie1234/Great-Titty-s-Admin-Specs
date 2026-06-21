@@ -82,8 +82,10 @@ extends SpecMove {
         double py = player.getY();
         double pz = player.getZ();
 
-        // Guaranteed visible beacon at player position
-        sl.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE, px, py + 0.5, pz, 1, 0.3, 0.5, 0.3, 0.05);
+        // Guaranteed visible markers at player position
+        sl.sendParticles(ParticleTypes.EXPLOSION, px, py + 0.5, pz, 1, 0.4, 0.4, 0.4, 0);
+        sl.sendParticles(ParticleTypes.FLASH, px, py + 0.5, pz, 1, 0, 0, 0, 0);
+        sl.sendParticles(ParticleTypes.CAMPFIRE_SIGNAL_SMOKE, px, py + 0.5, pz, 3, 0.4, 0.5, 0.4, 0.08);
         if (Math.random() < 0.3) {
             sl.sendParticles(ParticleTypes.LAVA,
                 px + (Math.random() - 0.5) * 0.5, py + Math.random() * 1.5, pz + (Math.random() - 0.5) * 0.5,
