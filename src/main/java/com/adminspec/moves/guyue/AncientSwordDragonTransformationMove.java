@@ -78,15 +78,57 @@ public class AncientSwordDragonTransformationMove extends SpecMove {
             com.adminspec.network.SpecStatePayload.broadcast(sp);
         }
 
-        // Keep mayfly+flying set so the server doesn't rubber-band us.
-        // Actual velocity is applied in SpecEvents.onServerTickPost (after vanilla flight),
-        // which prevents vanilla creative flight from overwriting our custom movement.
-        if (!sp.getAbilities().mayfly) {
-            sp.getAbilities().mayfly = true;
-            sp.onUpdateAbilities();
+        // Flight control: noGravity prevents falling, manual velocity gives direct control.
+        // We intentionally do NOT set mayfly=true — vanilla creative flight would overwrite
+        // our setDeltaMovement with input-based velocity. Instead, setNoGravity + direct
+        // velocity lets us control movement completely.
+        if (!sp.isNoGravity()) {
+            sp.setNoGravity(true);
         }
-        sp.getAbilities().flying = true;
-        sp.onUpdateAbilities();
+
+        // Direct velocity flight: no acceleration buildup, immediate response
+        Vec3 look = sp.getLookAngle();
+        Vec3 lookH = new Vec3(look.x, 0, look.z);
+        if (lookH.lengthSqr() < 1.0E-6) {
+            lookH = new Vec3(0, 0, 1);
+        } else {
+            lookH = lookH.normalize();
+        }
+        Vec3 right = new Vec3(-lookH.z, 0, lookH.x);
+
+        Vec3 move = Vec3.ZERO;
+        float forward = data.getDragonForward();
+        float strafe  = data.getDragonStrafe();
+
+        if (Math.abs(forward) > 0.01f) {
+            move = move.add(lookH.scale(forward));
+        }
+        if (Math.abs(strafe) > 0.01f) {
+            move = move.add(right.scale(strafe));
+        }
+
+        double speed = 0.5;
+        Vec3 newVel = Vec3.ZERO;
+        if (move.lengthSqr() > 1.0E-6) {
+            newVel = move.normalize().scale(speed);
+        }
+
+        // Vertical: jump = ascend, sneak = descend
+        if (data.isDragonJumping()) {
+            newVel = newVel.add(0, 0.4, 0);
+        } else if (data.isDragonSneaking()) {
+            newVel = newVel.add(0, -0.4, 0);
+        }
+
+        // Upward launch during first 20 ticks
+        if (data.getDragonFormTicks() < 20) {
+            double progress = (double) data.getDragonFormTicks() / 20.0;
+            double up = 1.3 * (1.0 - progress);
+            newVel = newVel.add(0, up, 0);
+        }
+
+        sp.setDeltaMovement(newVel);
+        sp.hurtMarked = true;
     }
 
     private void transform(ServerPlayer player, PlayerSpecData data) {

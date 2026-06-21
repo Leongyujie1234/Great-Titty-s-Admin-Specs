@@ -45,7 +45,6 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
-import net.neoforged.neoforge.event.tick.ServerTickEvent.Post;
 
 @EventBusSubscriber(modid="adminspec", bus=EventBusSubscriber.Bus.GAME)
 public final class SpecEvents {
@@ -75,82 +74,6 @@ public final class SpecEvents {
                 SpecStatePayload.broadcast((Player)player);
             }
         }
-    }
-
-    /**
-     * Post-tick: override vanilla creative flight physics with our custom dragon
-     * velocity.  Vanilla flight runs inside ServerPlayer.tick() and would otherwise
-     * overwrite the values we set in AncientSwordDragonTransformationMove.tick().
-     * By re-applying here we guarantee our velocity sticks.
-     */
-    @SubscribeEvent
-    public static void onServerTickPost(ServerTickEvent.Post event) {
-        MinecraftServer server = event.getServer();
-        for (ServerPlayer sp : server.getPlayerList().getPlayers()) {
-            PlayerSpecData data = PlayerSpecCapability.get(sp);
-            if (!data.isDragonFormActive()) continue;
-            if (data.getDragonFormTicks() < 20) {
-                // Force upward launch during transition
-                double progress = (double) data.getDragonFormTicks() / 20.0;
-                double up = 1.3 * (1.0 - progress);
-                sp.setDeltaMovement(sp.getDeltaMovement().x, up, sp.getDeltaMovement().z);
-            } else {
-                applyDragonFlightVelocity(sp, data);
-            }
-            sp.hurtMarked = true;
-        }
-    }
-
-    private static void applyDragonFlightVelocity(ServerPlayer sp, PlayerSpecData data) {
-        // Pull flight constants (must match AncientSwordDragonTransformationMove)
-        double FLIGHT_ACCEL    = 0.08;
-        double FLIGHT_MAX_SPEED = 1.2;
-        double FLIGHT_FRICTION  = 0.90;
-        double VERT_ACCEL       = 0.06;
-
-        Vec3 velocity = sp.getDeltaMovement();
-        Vec3 look = sp.getLookAngle();
-        Vec3 moveDir = Vec3.ZERO;
-
-        float forward = data.getDragonForward();
-        float strafe  = data.getDragonStrafe();
-
-        if (forward > 0.01f) {
-            moveDir = moveDir.add(look);
-        } else if (forward < -0.01f) {
-            moveDir = moveDir.subtract(look);
-        }
-
-        if (Math.abs(strafe) > 0.01f) {
-            Vec3 right = new Vec3(look.z, 0, -look.x).normalize();
-            if (strafe > 0f) {
-                moveDir = moveDir.subtract(right);  // strafe right
-            } else {
-                moveDir = moveDir.add(right);       // strafe left
-            }
-        }
-
-        // Vertical: jump = ascend, sneak = descend
-        if (data.isDragonJumping()) {
-            moveDir = moveDir.add(0, VERT_ACCEL / FLIGHT_ACCEL, 0);
-        } else if (data.isDragonSneaking()) {
-            moveDir = moveDir.subtract(0, VERT_ACCEL / FLIGHT_ACCEL, 0);
-        }
-
-        // Apply acceleration
-        if (moveDir.lengthSqr() > 1.0E-6) {
-            Vec3 accel = moveDir.normalize().scale(FLIGHT_ACCEL);
-            velocity = velocity.add(accel);
-        }
-
-        // Friction + speed cap
-        velocity = velocity.scale(FLIGHT_FRICTION);
-        double speed = velocity.length();
-        if (speed > FLIGHT_MAX_SPEED) {
-            velocity = velocity.scale(FLIGHT_MAX_SPEED / speed);
-        }
-
-        sp.setDeltaMovement(velocity);
     }
 
     @SubscribeEvent
