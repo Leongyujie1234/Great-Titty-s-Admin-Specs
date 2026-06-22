@@ -4,6 +4,7 @@ import com.adminspec.entity.TheWorldStandEntity;
 import com.adminspec.network.TimeStopVfxPayload;
 import com.adminspec.spec.MoveContext;
 import com.adminspec.spec.SpecMove;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -36,6 +37,16 @@ public class DioTimeStopMove extends SpecMove {
 
         // Start server-managed timestop (like JCraft's Timestops system)
         DioStandState.SERVER_TIMESTOPS.add(new DioStandState.ActiveTimestop(sp, sp.position(), (ServerLevel) sp.level(), DioStandState.TIMESTOP_FREEZE_DURATION));
+
+        ServerLevel sl = (ServerLevel) sp.level();
+        double px = sp.getX(); double py = sp.getY(); double pz = sp.getZ();
+        sl.sendParticles(ParticleTypes.DRAGON_BREATH, px, py + 0.5, pz, 20, 2.0, 2.0, 2.0, 0.01);
+        sl.sendParticles(ParticleTypes.FLASH, px, py + 0.5, pz, 1, 0.0, 0.0, 0.0, 0.0);
+        for (int i = 0; i < 12; ++i) {
+            double angle = Math.random() * Math.PI * 2.0;
+            sl.sendParticles(ParticleTypes.SOUL_FIRE_FLAME, px + Math.cos(angle) * 3.0, py + 0.5, pz + Math.sin(angle) * 3.0, 1, 0.02, 0.02, 0.02, 0.0);
+        }
+
         DioStandState.TIMESTOP_TICKS.put(sp.getUUID(), DioStandState.TIMESTOP_WINDUP);
         DioStandState.TIMESTOP_CD.put(sp.getUUID(), DioStandState.TIMESTOP_COOLDOWN);
 
@@ -57,9 +68,20 @@ public class DioTimeStopMove extends SpecMove {
         t--;
         if (t <= 0) {
             DioStandState.TIMESTOP_TICKS.remove(u);
+
+            ServerLevel sl = (ServerLevel) sp.level();
+            double px = sp.getX(); double py = sp.getY() + 0.5; double pz = sp.getZ();
+            sl.sendParticles(ParticleTypes.EXPLOSION, px, py, pz, 5, 0.5, 0.5, 0.5, 0.0);
+            sl.sendParticles(ParticleTypes.CRIT, px, py, pz, 15, 1.0, 1.0, 1.0, 0.05);
+
             sp.sendSystemMessage(Component.literal("§e[The World] §7Time resumes."));
             PacketDistributor.sendToPlayer(sp, new TimeStopVfxPayload(sp.getUUID(), false));
         } else {
+            ServerLevel sl = (ServerLevel) sp.level();
+            double px = sp.getX(); double py = sp.getY() + 0.5; double pz = sp.getZ();
+            sl.sendParticles(ParticleTypes.DRAGON_BREATH, px + (Math.random() - 0.5) * 2.0, py + Math.random(), pz + (Math.random() - 0.5) * 2.0, 5, 0.3, 0.3, 0.3, 0.01);
+            sl.sendParticles(ParticleTypes.END_ROD, px + (Math.random() - 0.5) * 2.0, py + Math.random(), pz + (Math.random() - 0.5) * 2.0, 3, 0.1, 0.1, 0.1, 0.0);
+
             DioStandState.TIMESTOP_TICKS.put(u, t);
         }
     }

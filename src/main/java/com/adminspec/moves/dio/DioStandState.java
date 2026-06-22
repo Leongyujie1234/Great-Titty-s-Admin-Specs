@@ -3,6 +3,8 @@ package com.adminspec.moves.dio;
 import com.adminspec.AdminSpecMod;
 import com.adminspec.entity.ModEntities;
 import com.adminspec.entity.TheWorldStandEntity;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -10,6 +12,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,6 +62,11 @@ public final class DioStandState {
         stand.setPos(player.getX(), player.getY(), player.getZ());
         stand.setOwner(player);
         player.level().addFreshEntity(stand);
+        ServerLevel sl = (ServerLevel) player.level();
+        sl.sendParticles(ParticleTypes.EXPLOSION, stand.getX(), stand.getY() + 0.5, stand.getZ(), 3, 0.8, 0.8, 0.8, 0.1);
+        sl.sendParticles(ParticleTypes.FLASH, stand.getX(), stand.getY() + 0.5, stand.getZ(), 1, 0.0, 0.0, 0.0, 0.0);
+        sl.sendParticles(ParticleTypes.SWEEP_ATTACK, stand.getX(), stand.getY() + 0.5, stand.getZ(), 5, 0.5, 0.5, 0.5, 0.0);
+        sl.sendParticles(new DustParticleOptions(new Vector3f(1.0f, 0.84f, 0.0f), 1.5f), stand.getX(), stand.getY() + 0.5, stand.getZ(), 10, 0.5, 0.5, 0.5, 0.0);
         STAND_ENTITY.put(player.getUUID(), stand.getId());
         AdminSpecMod.LOGGER.info("[DIO] Spawned The World for {}", player.getName().getString());
     }

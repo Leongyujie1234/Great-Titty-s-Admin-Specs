@@ -3,6 +3,8 @@ package com.adminspec.moves.dio;
 import com.adminspec.entity.TheWorldStandEntity;
 import com.adminspec.spec.MoveContext;
 import com.adminspec.spec.SpecMove;
+import net.minecraft.core.particles.DustParticleOptions;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -10,6 +12,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 
 import java.util.List;
 import java.util.UUID;
@@ -60,6 +63,12 @@ public class DioBarrageMove extends SpecMove {
                 v.hurt(sl.damageSources().playerAttack(sp), DioStandState.BARRAGE_DAMAGE);
                 v.setDeltaMovement(look.scale(DioStandState.BARRAGE_KNOCKBACK).add(0, 0.1, 0));
                 v.hurtMarked = true;
+
+                Vec3 hitPos = v.position().add(0.0, v.getBbHeight() * 0.5, 0.0);
+
+                sl.sendParticles(ParticleTypes.ENCHANTED_HIT, hitPos.x, hitPos.y, hitPos.z, 3, 0.25, 0.25, 0.25, 0.03);
+                sl.sendParticles(ParticleTypes.CRIT, hitPos.x, hitPos.y, hitPos.z, 3, 0.25, 0.25, 0.25, 0.05);
+                sl.sendParticles(new DustParticleOptions(new Vector3f(1.0f, 0.84f, 0.0f), 1.5f), hitPos.x, hitPos.y, hitPos.z, 5, 0.3, 0.3, 0.3, 0.0);
             }
         }
         t--;

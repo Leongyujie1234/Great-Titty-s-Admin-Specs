@@ -3,6 +3,7 @@ package com.adminspec.moves.dio;
 import com.adminspec.entity.TheWorldStandEntity;
 import com.adminspec.spec.MoveContext;
 import com.adminspec.spec.SpecMove;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -67,11 +68,19 @@ public class DioChargeMove extends SpecMove {
             } else {
                 stand.setDeltaMovement(dir.scale(0.8)); stand.hurtMarked = true;
                 ServerLevel sl = (ServerLevel) sp.level();
+
+                Vec3 trailPos = stand.position().add(0.0, stand.getBbHeight() / 2.0, 0.0);
+                sl.sendParticles(ParticleTypes.END_ROD, trailPos.x, trailPos.y, trailPos.z, 6, 0.1, 0.1, 0.1, 0.03);
+                sl.sendParticles(ParticleTypes.CRIT, trailPos.x, trailPos.y, trailPos.z, 4, 0.15, 0.15, 0.15, 0.05);
                 AABB box = stand.getBoundingBox().inflate(1.0);
                 for (LivingEntity v : sl.getEntitiesOfClass(LivingEntity.class, box, e -> e.isAlive() && !e.equals(sp))) {
                     v.hurt(sl.damageSources().playerAttack(sp), DioStandState.CHARGE_DAMAGE);
                     Vec3 kb = v.position().subtract(stand.position()).normalize().scale(DioStandState.CHARGE_KNOCKBACK * 2).add(0, 0.3, 0);
                     v.setDeltaMovement(kb); v.hurtMarked = true;
+
+                    Vec3 impactPos = v.position().add(0.0, v.getBbHeight() * 0.5, 0.0);
+                    sl.sendParticles(ParticleTypes.EXPLOSION, impactPos.x, impactPos.y, impactPos.z, 3, 0.8, 0.8, 0.8, 0.1);
+                    sl.sendParticles(ParticleTypes.FLASH, impactPos.x, impactPos.y, impactPos.z, 1, 0.0, 0.0, 0.0, 0.0);
                 }
             }
         }
